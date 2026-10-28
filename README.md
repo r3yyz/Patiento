@@ -1,4 +1,4 @@
-# Appel patients
+# Patiento
 
 Système d'appel des patients pour la salle d'attente : chaque praticien appelle son patient depuis son PC, la TV affiche « Mme Martin est attendue en salle 3 » avec un carillon et une annonce vocale. Entre deux appels, la TV montre un diaporama, les messages du cabinet et la liste des salles avec leur praticien.
 
@@ -32,7 +32,7 @@ La conversion des PowerPoint nécessite LibreOffice (`soffice`) et `pdftoppm` (p
 3. Copier ce dossier sur le Pi, puis depuis le compte de session (par exemple `pi`) :
 
    ```bash
-   cd appel-patients
+   cd Patiento
    sudo ./installer/install.sh              # ou --avec-voix pour la voix Piper
    sudo reboot
    ```
@@ -57,11 +57,11 @@ L'option `--avec-voix` installe [Piper](https://github.com/OHF-Voice/piper1-gpl)
 
 | Besoin | Commande |
 | --- | --- |
-| État du service | `systemctl status appel-patients` |
-| Journal | `journalctl -u appel-patients -e` |
-| Redémarrer | `sudo systemctl restart appel-patients` |
+| État du service | `systemctl status patiento` |
+| Journal | `journalctl -u patiento -e` |
+| Redémarrer | `sudo systemctl restart patiento` |
 | Mettre à jour | copier la nouvelle version puis relancer `sudo ./installer/install.sh` |
-| Sauvegarder la configuration | copier `/var/lib/appel-patients/config.json` |
+| Sauvegarder la configuration | copier `/var/lib/patiento/config.json` |
 
 Le fichier `config.json` contient les salles, les messages et les réglages, jamais de nom de patient. Après installation, une image de la carte microSD permet de remettre le boîtier en service en quelques minutes.
 

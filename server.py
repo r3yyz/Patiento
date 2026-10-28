@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Appel patients – serveur de l'application.
+"""Patiento – serveur de l'application.
 
 Un seul fichier, uniquement la bibliothèque standard Python (3.9+).
 - Les appels (noms des patients) restent en mémoire vive et s'effacent
@@ -447,7 +447,7 @@ def fichier_sur(base, relatif):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "AppelPatients/1.0"
+    server_version = "Patiento/1.0"
     store: Store = None  # type: ignore
 
     # Journal minimal : jamais de corps de requête, donc jamais de nom de patient.
@@ -631,7 +631,7 @@ def main():
     threading.Thread(target=store.boucle, daemon=True).start()
     serveur = ThreadingHTTPServer((HOST, PORT), Handler)
     serveur.daemon_threads = True
-    print(f"Appel patients en écoute sur http://{HOST}:{PORT}  (données : {DATA_DIR})", flush=True)
+    print(f"Patiento en écoute sur http://{HOST}:{PORT}  (données : {DATA_DIR})", flush=True)
     try:
         serveur.serve_forever()
     except KeyboardInterrupt:

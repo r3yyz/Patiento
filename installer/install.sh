@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installation d'Appel patients sur un Raspberry Pi (Raspberry Pi OS Bookworm ou Trixie, avec bureau).
+# Installation de Patiento sur un Raspberry Pi (Raspberry Pi OS Bookworm ou Trixie, avec bureau).
 #
 #   sudo ./installer/install.sh                  installation standard
 #   sudo ./installer/install.sh --avec-voix      + voix française de qualité (Piper, hors ligne)
@@ -8,8 +8,8 @@
 set -euo pipefail
 
 APP_SRC="$(cd "$(dirname "$0")/.." && pwd)"
-APP_DIR=/opt/appel-patients
-DATA_DIR=/var/lib/appel-patients
+APP_DIR=/opt/patiento
+DATA_DIR=/var/lib/patiento
 SVC_USER=appel
 PORT="${APPEL_PORT:-80}"
 KIOSK_USER="${SUDO_USER:-}"
@@ -55,9 +55,9 @@ if [[ $AVEC_VOIX -eq 1 ]]; then
 fi
 
 echo "==> Service"
-cat > /etc/systemd/system/appel-patients.service <<EOF
+cat > /etc/systemd/system/patiento.service <<EOF
 [Unit]
-Description=Appel patients (écran de salle d'attente)
+Description=Patiento (écran de salle d'attente)
 After=network-online.target
 Wants=network-online.target
 
@@ -81,8 +81,8 @@ ReadWritePaths=$DATA_DIR
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-systemctl enable appel-patients
-systemctl restart appel-patients
+systemctl enable patiento
+systemctl restart patiento
 
 echo "==> Écran en mode kiosque"
 cat > /usr/local/bin/appel-kiosque <<EOF
