@@ -1,0 +1,45 @@
+{
+  "cabinet": "Cabinet de kinésithérapie",
+  "salles": [
+    {
+      "salle": "1",
+      "praticien": "Dr. Dupont"
+    },
+    {
+      "salle": "2",
+      "praticien": ""
+    },
+    {
+      "salle": "3",
+      "praticien": "Dr. Ducont"
+    },
+    {
+      "salle": "4",
+      "praticien": ""
+    },
+    {
+      "salle": "5",
+      "praticien": ""
+    }
+  ],
+  "messages": [
+    {
+      "id": "0c929738",
+      "texte": "Le cabinet sera fermé le 10 novembre toute la journée",
+      "jusqu_au": "2026-11-10"
+    }
+  ],
+  "duree_appel": 25,
+  "duree_diapo": 10,
+  "duree_historique": 5,
+  "horaires": {
+    "debut": "08:00",
+    "fin": "21:00"
+  },
+  "diaporama": {
+    "version": "",
+    "fichiers": [],
+    "source": "",
+    "date": ""
+  }
+}

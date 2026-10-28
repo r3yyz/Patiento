@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Appel patients</title>
+<link rel="stylesheet" href="/static/commun.css">
+<style>
+  .tuiles { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .tuiles a {
+    display: grid; gap: 6px; padding: 22px; border-radius: 12px; border: 1px solid var(--trait);
+    background: #fff; color: var(--encre); text-decoration: none;
+  }
+  .tuiles a:hover { border-color: var(--accent); background: var(--accent-clair); }
+  .tuiles strong { font-size: 1.15rem; color: var(--accent-fonce); }
+  .tuiles span { color: var(--doux); font-size: .92rem; }
+</style>
+</head>
+<body>
+<header class="entete">
+  <div class="titre">
+    <h1>Appel patients</h1>
+    <span class="sous-titre" id="cabinet"></span>
+  </div>
+  <span class="etat-connexion" id="connexion">Connexion…</span>
+</header>
+<main class="page">
+  <div class="tuiles">
+    <a href="/appel"><strong>Appeler un patient</strong><span>Choisir sa salle et appeler.</span></a>
+    <a href="/contenus"><strong>Contenus de l'écran</strong><span>Diaporama, messages, salles et réglages.</span></a>
+    <a href="/ecran" target="_blank"><strong>Écran de la salle d'attente</strong><span>Ce qu'affiche la TV.</span></a>
+  </div>
+</main>
+<script src="/static/commun.js"></script>
+<script>
+  ecouterEtat((e) => { document.getElementById("cabinet").textContent = e.cabinet; },
+              document.getElementById("connexion"));
+</script>
+</body>
+</html>
