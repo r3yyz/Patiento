@@ -54,6 +54,7 @@
   .bas { background: var(--nuit); }
   .salles { display: flex; flex-wrap: wrap; justify-content: center; gap: .6vh 3.2vw; padding: 1.6vh 3vw; font-size: 2.8vh; }
   .salles span b { color: var(--accent-vif); margin-right: .6vw; }
+  .salles i.pole { font-style: normal; text-transform: uppercase; letter-spacing: .08em; font-size: .75em; opacity: .65; align-self: center; }
   .messages { background: var(--sable); color: var(--nuit); font-size: 3.2vh; font-weight: 600; height: 6.4vh; overflow: hidden; position: relative; }
   .messages .piste { position: absolute; top: 0; left: 0; height: 100%; display: flex; align-items: center; white-space: nowrap; padding-left: 3vw; }
   .messages .piste.defile { animation: defiler linear infinite; padding-left: 0; }
@@ -280,7 +281,7 @@
     ajusterNom(a.identite);
     $("appel-suite").textContent = `est ${a.civilite === "Mme" ? "attendue" : "attendu"} en`;
     $("appel-salle").textContent = `Salle ${a.salle}`;
-    $("appel-praticien").textContent = a.praticien;
+    $("appel-praticien").textContent = [a.pole, a.praticien].filter(Boolean).join(" · ");
     $("appel").hidden = false;
 
     const maintenant = Date.now() / 1000 + decalage;
@@ -311,11 +312,18 @@
   }
 
   function afficherSalles(e) {
-    $("salles").replaceChildren(...e.salles.filter((s) => s.praticien).map((s) => {
+    const elements = [];
+    let pole = null;
+    for (const s of e.salles.filter((x) => x.praticien)) {
+      if (s.pole && s.pole !== pole) {
+        elements.push(Object.assign(document.createElement("i"), { className: "pole", textContent: s.pole }));
+      }
+      pole = s.pole || null;
       const span = document.createElement("span");
       span.append(Object.assign(document.createElement("b"), { textContent: `Salle ${s.salle}` }), s.praticien);
-      return span;
-    }));
+      elements.push(span);
+    }
+    $("salles").replaceChildren(...elements);
   }
 
   function rendre(e) {

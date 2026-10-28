@@ -104,7 +104,7 @@
     conteneur.replaceChildren(...e.salles.map((s) =>
       elt("a", { href: `/appel?salle=${encodeURIComponent(s.salle)}` },
         elt("strong", {}, `Salle ${s.salle}`),
-        elt("span", { class: "aide" }, s.praticien || "Praticien non renseigné"))));
+        elt("span", { class: "aide" }, [s.pole, s.praticien || "Praticien non renseigné"].filter(Boolean).join(" · ")))));
   }
 
   function statutBadge(a) {
@@ -127,7 +127,7 @@
     $("page-choix").hidden = true;
     $("page-appel").hidden = false;
     $("titre").textContent = `Salle ${salle}`;
-    $("sous-titre").textContent = s.praticien || e.cabinet;
+    $("sous-titre").textContent = [s.pole, s.praticien].filter(Boolean).join(" · ") || e.cabinet;
     document.title = `Appel – salle ${salle}`;
     $("titre-liste").textContent = `Appels de la salle ${salle}`;
 

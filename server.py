@@ -49,8 +49,14 @@ NOM_VALIDE = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿŒœ' \-]{1,40}$")
 HEURE_VALIDE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_CONFIG = {
-    "cabinet": "Cabinet de kinésithérapie",
-    "salles": [{"salle": str(i), "praticien": ""} for i in range(1, 6)],
+    "cabinet": "Maison de santé de Lamotte-Beuvron",
+    # Une salle = un cabinet de consultation, rattaché à un pôle. À adapter dans la page Contenus.
+    "salles": (
+        [{"salle": str(i), "pole": "Médecine", "praticien": ""} for i in range(1, 8)]      # 6 généralistes + 1 spécialistes
+        + [{"salle": str(i), "pole": "Dentaire", "praticien": ""} for i in range(8, 10)]
+        + [{"salle": str(i), "pole": "Kinésithérapie", "praticien": ""} for i in range(10, 12)]
+        + [{"salle": "12", "pole": "Infirmiers", "praticien": ""}]
+    ),
     "messages": [],
     "duree_appel": 25,        # secondes d'affichage plein écran par appel
     "duree_diapo": 10,        # secondes par diapositive
@@ -149,6 +155,7 @@ class Store:
         public = {k: appel[k] for k in ("id", "salle", "civilite", "nom", "precision",
                                          "statut", "cree", "affiche_a", "passage")}
         public["praticien"] = salle.get("praticien", "")
+        public["pole"] = salle.get("pole", "")
         public["identite"] = appel["identite"]
         public["phrase"] = appel["phrase"]
         public["vocal"] = appel["vocal"]
@@ -326,12 +333,13 @@ class Store:
         for s in salles:
             numero = re.sub(r"\s+", " ", str(s.get("salle", ""))).strip()[:10]
             praticien = re.sub(r"\s+", " ", str(s.get("praticien", ""))).strip()[:60]
+            pole = re.sub(r"\s+", " ", str(s.get("pole", ""))).strip()[:40]
             if not numero:
                 continue
             if numero in vues:
                 raise ValueError(f"La salle « {numero} » apparaît deux fois.")
             vues.add(numero)
-            propres.append({"salle": numero, "praticien": praticien})
+            propres.append({"salle": numero, "pole": pole, "praticien": praticien})
         if not propres:
             raise ValueError("Il faut au moins une salle.")
         with self.cond:

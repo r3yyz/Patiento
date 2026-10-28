@@ -21,7 +21,7 @@
   .barre span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   .vignettes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .vignettes img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #111; border-radius: 6px; }
-  .salle-ligne { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; }
+  .salle-ligne { display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 10px; align-items: center; }
   .lien-ligne { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
   .lien-ligne code { font-size: .88rem; background: #f1eee7; padding: 8px 10px; border-radius: 7px; overflow-wrap: anywhere; }
   .titre-carte { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -69,7 +69,7 @@
     <p>Ils défilent en bas de l'écran. Une date de fin les retire automatiquement le lendemain.</p>
     <form class="ligne" id="form-message" autocomplete="off">
       <label style="grid-column: span 2">Texte
-        <input type="text" id="texte-message" maxlength="200" required placeholder="Ex. : le cabinet sera fermé le mercredi 11 novembre">
+        <input type="text" id="texte-message" maxlength="200" required placeholder="Ex. : la maison de santé sera fermée le mercredi 11 novembre">
       </label>
       <label>Jusqu'au (facultatif)
         <input type="date" id="date-message">
@@ -82,10 +82,10 @@
 
   <section class="carte" id="salles">
     <div class="titre-carte">
-      <h2>Salles et praticiens</h2>
+      <h2>Salles, pôles et praticiens</h2>
       <button class="bouton secondaire petit" id="ajouter-salle" type="button">+ Ajouter une salle</button>
     </div>
-    <p>Ces informations s'affichent en permanence en bas de l'écran. Laissez le nom vide pour masquer une salle de l'écran.</p>
+    <p>Ces informations s'affichent en permanence en bas de l'écran. Laissez le nom du praticien vide pour masquer une salle de l'écran ; le pôle sert à regrouper les salles.</p>
     <form id="form-salles" style="display:grid; gap:10px">
       <div id="lignes-salles" style="display:grid; gap:10px"></div>
       <div><button class="bouton" type="submit">Enregistrer les salles</button></div>
@@ -213,9 +213,10 @@
   }
 
   // ---------- Salles ----------
-  function ligneSalle(s = { salle: "", praticien: "" }) {
+  function ligneSalle(s = { salle: "", pole: "", praticien: "" }) {
     const ligne = elt("div", { class: "salle-ligne" },
       elt("input", { type: "text", maxlength: "10", value: s.salle, placeholder: "N° salle", "aria-label": "Numéro de salle", required: "" }),
+      elt("input", { type: "text", maxlength: "40", value: s.pole || "", placeholder: "Pôle (ex. : Médecine)", "aria-label": "Pôle" }),
       elt("input", { type: "text", maxlength: "60", value: s.praticien, placeholder: "Nom du praticien (ex. : Dr Dupont)", "aria-label": "Praticien" }),
       elt("button", { class: "bouton danger petit", type: "button", onclick: () => { ligne.remove(); sallesModifiees = true; } }, "Retirer"));
     ligne.addEventListener("input", () => { sallesModifiees = true; });
@@ -234,8 +235,8 @@
   $("form-salles").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const salles = [...$("lignes-salles").children].map((l) => {
-      const [n, p] = l.querySelectorAll("input");
-      return { salle: n.value, praticien: p.value };
+      const [n, po, p] = l.querySelectorAll("input");
+      return { salle: n.value, pole: po.value, praticien: p.value };
     });
     try {
       await envoyerJson("/api/salles", { salles });
@@ -250,7 +251,7 @@
     $("liste-liens").replaceChildren(...e.salles.map((s) => {
       const url = `${location.origin}/appel?salle=${encodeURIComponent(s.salle)}`;
       return elt("div", { class: "lien-ligne" },
-        elt("code", {}, `Salle ${s.salle}${s.praticien ? " · " + s.praticien : ""} — ${url}`),
+        elt("code", {}, `Salle ${s.salle}${s.pole ? " · " + s.pole : ""}${s.praticien ? " · " + s.praticien : ""} — ${url}`),
         elt("button", { class: "bouton secondaire petit", type: "button", onclick: async () => {
           try { await navigator.clipboard.writeText(url); notifier("Lien copié."); }
           catch (err) { prompt("Copiez le lien :", url); }

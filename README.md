@@ -1,6 +1,6 @@
 # Patiento
 
-Système d'appel des patients pour la salle d'attente d'un cabinet. Chaque praticien appelle son patient depuis son PC ou son smartphone ; la TV de la salle d'attente affiche « Mme Martin est attendue en salle 3 », joue un carillon et fait une annonce vocale. Entre deux appels, la TV montre un diaporama, les messages du cabinet et la liste des salles avec leur praticien.
+Système d'appel des patients pour la salle d'attente d'une maison de santé. Il est conçu pour la [maison de santé pluriprofessionnelle de Lamotte-Beuvron](https://www.coeurdesologne.com/jentreprends/chercher-un-local/la-maison-de-sante-pluriprofessionnelle/) (pôles médecine, dentaire, kinésithérapie et infirmiers) et reste adaptable à tout autre cabinet ou structure. Chaque praticien appelle son patient depuis son PC ou son smartphone ; la TV de la salle d'attente affiche « Mme Martin est attendue en salle 3 », joue un carillon et fait une annonce vocale. Entre deux appels, la TV montre un diaporama, les messages de la maison de santé et la liste des salles regroupées par pôle, avec leur praticien.
 
 Tout tient dans **un seul programme Python**, sans dépendance externe ni base de données, qui tourne sur un Raspberry Pi branché derrière la TV.
 
@@ -34,7 +34,7 @@ Tout tient dans **un seul programme Python**, sans dépendance externe ni base d
 2. Le serveur enregistre l'appel **en mémoire vive uniquement** et prévient immédiatement l'écran par un flux d'événements (`/evenements`, Server-Sent Events). Il n'y a pas d'actualisation périodique : l'affichage est instantané.
 3. L'écran de la salle d'attente affiche la phrase en plein écran pendant la durée réglée (25 s par défaut), joue le carillon et lit l'annonce à voix haute.
 4. L'appel reste ensuite dans la liste des derniers appels (5 minutes par défaut), puis disparaît. Le praticien peut **rappeler** (l'annonce est rejouée) ou **annuler** un appel.
-5. Sans appel en cours, l'écran alterne le diaporama et les messages du cabinet, avec la liste des salles et des praticiens et l'horloge. En dehors des horaires réglés, l'écran passe au noir.
+5. Sans appel en cours, l'écran alterne le diaporama et les messages de la maison de santé, avec la liste des salles et des praticiens, regroupés par pôle, et l'horloge. En dehors des horaires réglés, l'écran passe au noir.
 
 Les salles, les praticiens, les messages, le diaporama et les réglages sont enregistrés dans `config.json`. Aucun nom de patient n'y figure jamais.
 
@@ -65,7 +65,7 @@ Patiento/
 ├── server.py            serveur HTTP (bibliothèque standard Python uniquement)
 ├── static/              pages et ressources web (accueil, appel, contenus, écran)
 ├── installer/install.sh installation complète sur Raspberry Pi
-├── data/config.json     configuration utilisée pour les essais sur PC
+├── data/config.example.json   exemple de configuration (noms fictifs)
 └── README.md
 ```
 
@@ -86,13 +86,19 @@ Puis :
 
 La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm` (paquet `poppler-utils`). Sans eux, les appels et les messages fonctionnent, seul le dépôt de présentations échoue.
 
-En mode essai, les données sont stockées dans le dossier `data/` du projet.
+En mode essai, les données sont stockées dans le dossier `data/` du projet. Sans fichier `data/config.json`, le serveur démarre avec la structure de la maison de santé (12 salles réparties en 4 pôles, sans nom de praticien). Pour partir d'un exemple rempli avec des noms fictifs :
+
+```bash
+cp data/config.example.json data/config.json
+```
+
+Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont **pas versionnés** (voir `.gitignore`) : la configuration réelle ne part jamais sur GitHub. Seul `config.example.json` est publié.
 
 ## Installer sur le Raspberry Pi
 
 ### Matériel et prérequis
 
-- Un Raspberry Pi relié à la TV en HDMI et au réseau du cabinet **par câble**.
+- Un Raspberry Pi relié à la TV en HDMI et au réseau de la maison de santé **par câble**.
 - Raspberry Pi OS **avec bureau**, version Bookworm ou plus récente.
 - Une **IP fixe** pour le Pi : demander au gestionnaire réseau une réservation DHCP sur l'adresse MAC.
 - Un accès à Internet pendant l'installation (paquets, et voix Piper si l'option est choisie).
@@ -135,10 +141,10 @@ Relancer le script met l'application à jour **sans toucher aux données**.
 
 ## Première configuration
 
-Depuis n'importe quel PC du cabinet, ouvrir `http://IP-DU-PI/contenus` :
+Depuis n'importe quel PC de la maison de santé, ouvrir `http://IP-DU-PI/contenus` :
 
 1. **Réglages** : saisir le nom affiché en haut de l'écran, la durée d'un appel, la durée par diapositive, la durée de visibilité des derniers appels et les horaires d'allumage de l'écran.
-2. **Salles et praticiens** : indiquer le numéro de chaque salle et le praticien associé (le bouton « Ajouter une salle » en crée d'autres). Enregistrer.
+2. **Salles, pôles et praticiens** : pour chaque salle, indiquer le numéro, le pôle (Médecine, Dentaire, Kinésithérapie, Infirmiers) et le praticien (le bouton « Ajouter une salle » en crée d'autres). Les salles proposées par défaut (6 cabinets de généralistes et 1 de spécialistes, 2 dentaire, 2 kinésithérapie, 1 infirmiers) sont une base à ajuster au bâtiment réel. Une salle sans nom de praticien n'est pas affichée en bas de l'écran. Enregistrer.
 3. **Liens d'appel des praticiens** : chaque praticien met en favori le lien de sa salle, ou télécharge le **raccourci bureau** (`.url`) et le place sur son bureau.
 4. **Messages** (facultatif) : ajouter un texte et, si besoin, une date de fin (« Jusqu'au »). Le message n'est plus affiché sur l'écran après cette date.
 5. **Diaporama** (facultatif) : déposer une présentation PowerPoint, un PDF ou des images.
@@ -157,8 +163,8 @@ Le bouton « Voir l'écran » ouvre l'affichage de la salle d'attente pour contr
 
 - Les noms des patients restent **en mémoire vive** : jamais écrits sur disque ni dans les journaux, effacés de la liste après quelques minutes (5 par défaut) et à chaque redémarrage.
 - Seuls la civilité et le nom de famille sont affichés, avec l'initiale du prénom en cas d'homonymes.
-- Les pages ne sont accessibles que depuis le réseau du cabinet. **Ne pas exposer le Pi sur Internet.**
-- Les pages n'ont pas d'authentification : toute personne connectée au réseau du cabinet peut appeler un patient ou modifier les contenus. Réserver ce réseau au personnel.
+- Les pages ne sont accessibles que depuis le réseau de la maison de santé. **Ne pas exposer le Pi sur Internet.**
+- Les pages n'ont pas d'authentification : toute personne connectée au réseau de la maison de santé peut appeler un patient ou modifier les contenus. Réserver ce réseau au personnel.
 
 ## Maintenance
 
