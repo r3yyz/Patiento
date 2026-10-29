@@ -333,6 +333,8 @@ Ce qui se change au quotidien se règle dans la page Contenus. Les valeurs ci-de
 
 **Secrétariat** : la page `/contenus` sert à changer un message, remplacer le diaporama ou modifier le praticien d'une salle, sans toucher à l'installation.
 
+**Navigation** : sur toutes les pages, le logo **+** en haut à gauche ramène à l'accueil.
+
 **TV** : rien à faire. Elle affiche l'écran au démarrage et se reconnecte toute seule si le service redémarre.
 
 ## Confidentialité et sécurité
