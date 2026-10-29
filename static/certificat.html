@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion sécurisée</title>
+<link rel="stylesheet" href="/static/commun.css">
+<style>
+  .etapes { margin: 0; padding-left: 1.3em; display: grid; gap: 10px; }
+  .etapes li { padding-left: 4px; }
+  .actions-guide { display: flex; gap: 10px; flex-wrap: wrap; }
+  .autres summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+  .autres[open] summary { margin-bottom: 12px; }
+  .autres h3 { font-size: 1rem; margin: 14px 0 8px; }
+  .verification { display: flex; align-items: center; gap: 12px; color: var(--doux); }
+  .verification::before {
+    content: ""; width: 18px; height: 18px; border-radius: 50%; flex: none;
+    border: 3px solid var(--accent-clair); border-top-color: var(--accent); animation: tourne .8s linear infinite;
+  }
+  @keyframes tourne { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<header class="entete">
+  <div class="titre">
+    <h1>Connexion sécurisée</h1>
+    <span class="sous-titre">Patiento</span>
+  </div>
+</header>
+
+<main class="page">
+  <section class="carte" id="verif">
+    <p class="verification">Vérification de la connexion sécurisée…</p>
+  </section>
+
+  <section class="carte" id="deja" hidden>
+    <h2>Ce poste est prêt</h2>
+    <p>La connexion sécurisée fonctionne : il n'y a rien à installer sur ce poste. Pour équiper un autre appareil, ouvrez cette page depuis celui-ci, ou utilisez le guide ci-dessous.</p>
+    <div class="actions-guide"><a class="bouton" href="/">Aller à l'accueil</a></div>
+  </section>
+
+  <section class="carte" id="sans-autorite" hidden>
+    <h2>Certificat non reconnu</h2>
+    <p>Ce poste ne reconnaît pas le certificat utilisé par l'établissement. Contactez la personne qui gère l'informatique de la structure pour qu'elle installe l'autorité de certification sur ce poste.</p>
+    <div class="actions-guide"><a class="bouton secondaire" id="continuer-quand-meme-2" href="/">Continuer quand même</a></div>
+  </section>
+
+  <section class="carte" id="guide" hidden>
+    <h2>Une étape avant de continuer</h2>
+    <p>Pour protéger les noms des patients, les échanges avec l'écran de la salle d'attente sont chiffrés. Ce poste doit d'abord faire confiance au certificat de la structure. C'est à faire <strong>une seule fois</strong>, en une minute environ.</p>
+
+    <div id="etapes"></div>
+
+    <div class="actions-guide">
+      <a class="bouton secondaire" href="/certificat.crt" download="certificat-patiento.crt">Télécharger le certificat</a>
+      <button class="bouton" type="button" id="reessayer">C'est fait, continuer</button>
+    </div>
+    <p class="statut erreur" id="toujours" hidden>Le certificat n'est pas encore reconnu. Vérifiez les étapes, puis fermez et rouvrez le navigateur si besoin.</p>
+
+    <details class="autres">
+      <summary>Instructions pour un autre appareil</summary>
+      <div id="tous"></div>
+    </details>
+    <p class="aide" id="sans-installer">Vous pouvez aussi <a id="continuer-quand-meme" href="/">continuer sans installer le certificat</a> : le navigateur affichera alors un avertissement de sécurité.</p>
+  </section>
+</main>
+
+<template id="guides">
+  <section data-os="windows" data-titre="Windows (Edge, Chrome)">
+    <ol class="etapes">
+      <li>Cliquez sur <strong>Télécharger le certificat</strong>, puis ouvrez le fichier.</li>
+      <li>Cliquez sur <strong>Installer le certificat…</strong>, choisissez <strong>Utilisateur actuel</strong>, puis <strong>Suivant</strong>.</li>
+      <li>Choisissez <strong>Placer tous les certificats dans le magasin suivant</strong>, cliquez sur <strong>Parcourir</strong>, sélectionnez <strong>Autorités de certification racines de confiance</strong>, puis <strong>OK</strong>, <strong>Suivant</strong> et <strong>Terminer</strong>.</li>
+      <li>Répondez <strong>Oui</strong> à l'avertissement de sécurité de Windows.</li>
+      <li>Cliquez sur <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+  <section data-os="mac" data-titre="Mac (Safari, Chrome)">
+    <ol class="etapes">
+      <li>Cliquez sur <strong>Télécharger le certificat</strong>, puis ouvrez le fichier : l'application <strong>Trousseaux d'accès</strong> s'ouvre. Ajoutez-le au trousseau <strong>session</strong>.</li>
+      <li>Double-cliquez sur <strong>Patiento - autorité locale</strong>, dépliez <strong>Se fier</strong> et choisissez <strong>Toujours approuver</strong>.</li>
+      <li>Fermez la fenêtre et saisissez le mot de passe du Mac.</li>
+      <li>Cliquez sur <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+  <section data-os="ios" data-titre="iPhone, iPad">
+    <ol class="etapes">
+      <li>Dans <strong>Safari</strong>, touchez <strong>Télécharger le certificat</strong>, puis <strong>Autoriser</strong>.</li>
+      <li>Ouvrez <strong>Réglages</strong> › <strong>Profil téléchargé</strong> › <strong>Installer</strong>.</li>
+      <li>Ouvrez <strong>Réglages</strong> › <strong>Général</strong> › <strong>Informations</strong> › <strong>Réglages des certificats</strong>, et activez <strong>Patiento - autorité locale</strong>.</li>
+      <li>Revenez sur cette page et touchez <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+  <section data-os="android" data-titre="Android">
+    <ol class="etapes">
+      <li>Touchez <strong>Télécharger le certificat</strong>.</li>
+      <li>Ouvrez <strong>Paramètres</strong> › <strong>Sécurité</strong> › <strong>Chiffrement et identifiants</strong> › <strong>Installer un certificat</strong> › <strong>Certificat CA</strong>, puis choisissez le fichier téléchargé. Le chemin peut varier selon la marque : cherchez « certificat » dans les paramètres.</li>
+      <li>Revenez sur cette page et touchez <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+  <section data-os="firefox" data-titre="Firefox (ordinateur)">
+    <ol class="etapes">
+      <li>Cliquez sur <strong>Télécharger le certificat</strong>.</li>
+      <li>Ouvrez <strong>Paramètres</strong> › <strong>Vie privée et sécurité</strong> › <strong>Certificats</strong> › <strong>Afficher les certificats</strong> › onglet <strong>Autorités</strong> › <strong>Importer</strong>, et choisissez le fichier.</li>
+      <li>Cochez <strong>Confirmer cette AC pour identifier des sites web</strong>, puis <strong>OK</strong>.</li>
+      <li>Cliquez sur <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+  <section data-os="autre" data-titre="Linux, Chromium">
+    <ol class="etapes">
+      <li>Cliquez sur <strong>Télécharger le certificat</strong>.</li>
+      <li>Ouvrez les paramètres du navigateur › <strong>Confidentialité et sécurité</strong> › <strong>Sécurité</strong> › <strong>Gérer les certificats</strong> › <strong>Autorités</strong> › <strong>Importer</strong>, choisissez le fichier et cochez la confiance pour les sites web.</li>
+      <li>Cliquez sur <strong>C'est fait, continuer</strong>.</li>
+    </ol>
+  </section>
+</template>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const demande = params.get("suite") || "/";
+  const suite = demande.startsWith("/") && !demande.startsWith("//") ? demande : "/";  // chemin local uniquement
+  const port = /^\d+$/.test(params.get("port") || "") ? `:${params.get("port")}` : "";
+  const adresseHttps = `https://${location.hostname}${port}`;
+  $("continuer-quand-meme").href = $("continuer-quand-meme-2").href = adresseHttps + suite;
+
+  function systeme() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "ios";
+    if (/Android/.test(ua)) return "android";
+    if (/Firefox\//.test(ua)) return "firefox";
+    if (/Windows/.test(ua)) return "windows";
+    if (/Macintosh/.test(ua)) return "mac";
+    return "autre";
+  }
+
+  // Un échec de chargement en HTTPS signifie, ici, que le certificat n'est pas reconnu.
+  async function confianceHttps() {
+    const arret = new AbortController();
+    const minuteur = setTimeout(() => arret.abort(), 5000);
+    try {
+      await fetch(`${adresseHttps}/static/commun.css?v=${Date.now()}`, { mode: "no-cors", cache: "no-store", signal: arret.signal });
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      clearTimeout(minuteur);
+    }
+  }
+
+  function afficherGuides() {
+    const modeles = $("guides").content;
+    const os = systeme();
+    $("etapes").replaceChildren(modeles.querySelector(`[data-os="${os}"]`).cloneNode(true));
+    $("tous").replaceChildren(...[...modeles.querySelectorAll("section")]
+      .filter((s) => s.dataset.os !== os)
+      .map((s) => { const c = s.cloneNode(true); c.prepend(elt("h3", {}, s.dataset.titre)); return c; }));
+  }
+  function elt(tag, attrs, texte) { const e = document.createElement(tag); e.textContent = texte; return e; }
+
+  async function verifier() {
+    if (location.protocol === "https:") {
+      $("verif").hidden = true; $("deja").hidden = false; $("guide").hidden = false;
+      $("guide").querySelector("h2").textContent = "Équiper un autre appareil";
+      $("reessayer").hidden = $("sans-installer").hidden = true;
+      return afficherGuides();
+    }
+    if (await confianceHttps()) return location.replace(adresseHttps + suite);
+    const autoriteLocale = (await fetch("/certificat.crt", { method: "HEAD", cache: "no-store" })).ok;
+    $("verif").hidden = true;
+    if (!autoriteLocale) { $("sans-autorite").hidden = false; return; }
+    afficherGuides();
+    $("guide").hidden = false;
+  }
+
+  $("reessayer").addEventListener("click", async () => {
+    $("toujours").hidden = true;
+    if (await confianceHttps()) return location.replace(adresseHttps + suite);
+    $("toujours").hidden = false;
+  });
+
+  verifier();
+</script>
+</body>
+</html>

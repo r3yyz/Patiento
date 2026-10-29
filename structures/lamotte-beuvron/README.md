@@ -58,6 +58,8 @@ sudo reboot
 
 Puis, depuis un poste de la maison de santé, ouvrir `http://IP-DU-PI/contenus` pour saisir les praticiens et distribuer les liens d'appel.
 
+Connexion sécurisée : la maison de santé n'a pas d'autorité de certification ni de domaine Windows, donc on garde l'**autorité locale autosignée** (mode par défaut). Postes principalement en **Wi-Fi**, indépendants : chaque poste et smartphone est guidé à sa première connexion pour installer le certificat (sans droits administrateur sous Windows). Noter l'empreinte affichée à la fin de l'installation pour la comparer sur les postes.
+
 ## Points restant ouverts
 
 - [ ] Vérifier qu'il y a une prise électrique et une prise réseau à hauteur de la TV (sinon, prévoir une goulotte).
@@ -65,3 +67,5 @@ Puis, depuis un poste de la maison de santé, ouvrir `http://IP-DU-PI/contenus` 
 - [ ] Essai sur place : lisibilité depuis le fond de la salle, carillon, volume, voix.
 - [ ] Vérifier la gêne éventuelle de l'encart « Derniers appels » sur les diapositives.
 - [ ] Ajuster les salles au plan réel du bâtiment.
+- [ ] Vérifier sur le Pi le minuteur `patiento-certificats.timer` et l'écoute sur les ports 80 et 443.
+- [ ] Équiper un premier poste Windows et un smartphone avec le guide, et corriger un libellé si un menu diffère.

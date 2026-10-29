@@ -12,6 +12,7 @@ Variables d'environnement :
   APPEL_HOST       adresse d'écoute (défaut 0.0.0.0)
   APPEL_DATA       dossier des données (défaut ./data)
   APPEL_TTS_MODEL  chemin d'une voix Piper (.onnx) pour l'annonce vocale
+  APPEL_PORT_HTTPS port HTTPS (défaut 443), utilisé si data/tls/serveur.crt et serveur.key existent
 """
 
 import io
@@ -19,6 +20,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -29,7 +31,7 @@ import wave
 from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 APP_DIR = Path(__file__).resolve().parent
 STATIC_DIR = APP_DIR / "static"
@@ -39,6 +41,8 @@ CONFIG_FILE = DATA_DIR / "config.json"
 PORT = int(os.environ.get("APPEL_PORT", "8080"))
 HOST = os.environ.get("APPEL_HOST", "0.0.0.0")
 TTS_MODEL = os.environ.get("APPEL_TTS_MODEL", "")
+PORT_HTTPS = int(os.environ.get("APPEL_PORT_HTTPS", "443"))
+TLS_DIR = DATA_DIR / "tls"   # créé par installer/certificats.sh ; absent = HTTP seul
 
 MAX_JSON = 64 * 1024
 MAX_UPLOAD = 200 * 1024 * 1024
@@ -440,7 +444,7 @@ def convertir_diaporama(store, source, nom_origine):
 # Serveur HTTP
 # --------------------------------------------------------------------------
 PAGES = {"/": "accueil.html", "/ecran": "ecran.html", "/appel": "appel.html",
-         "/contenus": "contenus.html"}
+         "/contenus": "contenus.html", "/certificat": "certificat.html"}
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".js": "text/javascript; charset=utf-8", ".png": "image/png",
          ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml",
@@ -505,6 +509,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         url = urlparse(self.path)
         chemin = url.path.rstrip("/") or "/"
+        if chemin == "/certificat" and not (TLS_DIR / "serveur.crt").is_file():
+            return self.envoyer(302, b"", entetes={"Location": "/"})  # HTTPS non configuré
         if chemin in PAGES:
             return self.fichier(STATIC_DIR / PAGES[chemin])
         if chemin == "/evenements":
@@ -514,6 +520,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.envoyer(200, self.store.etat_public())
         if chemin.startswith("/api/voix/"):
             return self.voix(chemin.rsplit("/", 1)[-1])
+        if chemin == "/certificat.crt":
+            f = TLS_DIR / "ca.crt"
+            if not f.is_file():
+                return self.erreur(404, "HTTPS non configuré.")
+            return self.envoyer(200, f.read_bytes(), "application/x-x509-ca-cert",
+                                {"Content-Disposition": 'attachment; filename="certificat-patiento.crt"'})
         if chemin.startswith("/raccourci/") and chemin.endswith(".url"):
             return self.raccourci(unquote(chemin[len("/raccourci/"):-4]))
         if chemin.startswith("/static/"):
@@ -558,7 +570,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.store._salle(salle) is None:
                 return self.erreur(404, "Salle inconnue.")
         hote = self.headers.get("Host") or f"localhost:{PORT}"
-        contenu = f"[InternetShortcut]\r\nURL=http://{hote}/appel?salle={salle}\r\n"
+        schema = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
+        contenu = f"[InternetShortcut]\r\nURL={schema}://{hote}/appel?salle={salle}\r\n"
         nom = re.sub(r"[^\w-]", "_", f"Appel salle {salle}")
         self.envoyer(200, contenu, "application/octet-stream",
                      {"Content-Disposition": f'attachment; filename="{nom}.url"'})
@@ -630,6 +643,63 @@ class Handler(BaseHTTPRequestHandler):
         self.envoyer(202, {"ok": True})
 
 
+class RedirectionHttps(Handler):
+    """Port HTTP quand le HTTPS est actif : l'écran TV (sur le Pi lui-même) est servi
+    normalement, les autres postes sont redirigés vers le HTTPS. Une page demandée en HTTP
+    passe d'abord par /certificat, qui vérifie que le poste fait confiance au certificat
+    (sinon elle guide son installation) avant de basculer en HTTPS."""
+
+    LIBRES = ("/certificat", "/certificat.crt")  # servis en HTTP : rien de confidentiel
+
+    def _rediriger(self):
+        hote = (self.headers.get("Host") or "localhost").rsplit(":", 1)[0]
+        port = "" if PORT_HTTPS == 443 else f":{PORT_HTTPS}"
+        self.send_response(308)  # 308 : le navigateur garde la méthode (POST reste POST)
+        self.send_header("Location", f"https://{hote}{port}{self.path}")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def _local(self):
+        return self.client_address[0] in ("127.0.0.1", "::1")
+
+    def do_GET(self):
+        chemin = urlparse(self.path).path.rstrip("/") or "/"
+        if self._local() or chemin in self.LIBRES or chemin.startswith("/static/"):
+            return super().do_GET()
+        if chemin in PAGES:
+            port = "" if PORT_HTTPS == 443 else f"&port={PORT_HTTPS}"
+            self.send_response(302)
+            self.send_header("Location", f"/certificat?suite={quote(self.path, safe='')}{port}")
+            self.send_header("Content-Length", "0")
+            return self.end_headers()
+        return self._rediriger()
+
+    def do_POST(self):
+        return super().do_POST() if self._local() else self._rediriger()
+
+
+class ServeurHttps(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def finish_request(self, request, client_address):
+        # Négociation TLS dans le fil de la connexion, pour qu'un client lent ne bloque pas les autres.
+        try:
+            request.settimeout(10)
+            request.do_handshake()
+            request.settimeout(None)
+        except (ssl.SSLError, OSError):
+            return  # certificat refusé par le navigateur, connexion coupée…
+        super().finish_request(request, client_address)
+
+
+def ouvrir(classe, port, handler):
+    try:
+        return classe((HOST, port), handler)
+    except OSError as exc:
+        sys.exit(f"Impossible d'écouter sur le port {port} ({exc.strerror}). "
+                 f"Le port est peut-être déjà utilisé : essayer APPEL_PORT={port + 1} python3 server.py")
+
+
 def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     for reste in DATA_DIR.glob("conversion-*"):  # conversions interrompues
@@ -637,13 +707,22 @@ def main():
     store = Store(Voix(TTS_MODEL))
     Handler.store = store
     threading.Thread(target=store.boucle, daemon=True).start()
-    try:
-        serveur = ThreadingHTTPServer((HOST, PORT), Handler)
-    except OSError as exc:
-        sys.exit(f"Impossible d'écouter sur le port {PORT} ({exc.strerror}). "
-                 f"Le port est peut-être déjà utilisé : essayer APPEL_PORT={PORT + 1} python3 server.py")
+
+    certificat, cle = TLS_DIR / "serveur.crt", TLS_DIR / "serveur.key"
+    if certificat.is_file() and cle.is_file():
+        contexte = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        contexte.minimum_version = ssl.TLSVersion.TLSv1_2
+        contexte.load_cert_chain(certificat, cle)
+        https = ouvrir(ServeurHttps, PORT_HTTPS, Handler)
+        https.socket = contexte.wrap_socket(https.socket, server_side=True, do_handshake_on_connect=False)
+        threading.Thread(target=https.serve_forever, daemon=True).start()
+        serveur = ouvrir(ThreadingHTTPServer, PORT, RedirectionHttps)
+        print(f"Patiento en écoute sur https://{HOST}:{PORT_HTTPS}, et sur http://{HOST}:{PORT} "
+              f"pour l'écran local (données : {DATA_DIR})", flush=True)
+    else:
+        serveur = ouvrir(ThreadingHTTPServer, PORT, Handler)
+        print(f"Patiento en écoute sur http://{HOST}:{PORT}  (données : {DATA_DIR})", flush=True)
     serveur.daemon_threads = True
-    print(f"Patiento en écoute sur http://{HOST}:{PORT}  (données : {DATA_DIR})", flush=True)
     try:
         serveur.serve_forever()
     except KeyboardInterrupt:

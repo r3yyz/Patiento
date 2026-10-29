@@ -16,7 +16,7 @@ Le praticien appelle son patient depuis son PC ou son smartphone. La TV de la sa
 
 - **Simple à installer** : un Raspberry Pi branché derrière la TV, un script d'installation, et c'est prêt.
 - **Sans abonnement ni cloud** : tout fonctionne sur le réseau local, même sans accès à Internet.
-- **Respectueux de la confidentialité** : les noms des patients restent en mémoire vive et ne sont jamais écrits sur le disque.
+- **Respectueux de la confidentialité** : les noms des patients restent en mémoire vive et ne sont jamais écrits sur le disque. Les échanges sont chiffrés en HTTPS.
 - **Lisible de loin** : police conçue pour la lisibilité (Atkinson Hyperlegible Next), contrastes élevés, nom du patient affiché en très grand.
 - **Adaptable** : nombre de salles, pôles, praticiens, horaires et messages se règlent depuis une page web, sans toucher au code.
 - **Léger et maintenable** : un seul programme Python sans dépendance, des pages HTML/CSS/JavaScript sans framework, pas de base de données.
@@ -43,9 +43,9 @@ Le praticien appelle son patient depuis son PC ou son smartphone. La TV de la sa
 ```
  PC / smartphone du praticien              Raspberry Pi                    TV (HDMI)
 ┌──────────────────────────┐        ┌──────────────────────┐        ┌───────────────────┐
-│ http://IP-DU-PI/appel    │ appel  │  server.py           │ temps  │ Chromium (kiosque)│
+│ https://IP-DU-PI/appel   │ appel  │  server.py           │ temps  │ Chromium (kiosque)│
 │ ?salle=3                 ├───────▶│  - appels en mémoire │ réel   │ /ecran            │
-│ « Mme Martin »  [Appeler]│  HTTP  │  - config.json       ├───────▶│ carillon + voix   │
+│ « Mme Martin »  [Appeler]│ HTTPS  │  - config.json       ├───────▶│ carillon + voix   │
 └──────────────────────────┘        │  - voix (option)     │  SSE   │ diaporama,        │
                                     └──────────────────────┘        │ messages, salles  │
                                                                     └───────────────────┘
@@ -144,13 +144,16 @@ La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm
    sudo reboot
    ```
 
-Au redémarrage, la TV affiche directement l'écran de la salle d'attente. L'application écoute sur le port 80 : les praticiens utilisent `http://IP-DU-PI/appel?salle=N`. Le script affiche ces adresses à la fin de l'installation.
+Au redémarrage, la TV affiche directement l'écran de la salle d'attente. Les praticiens utilisent `https://IP-DU-PI/appel?salle=N`. À leur première connexion, un guide leur fait installer le certificat de la structure (voir [Connexion sécurisée](#connexion-sécurisée-https)). Le script affiche ces adresses et l'empreinte du certificat à la fin de l'installation.
+
+Pour utiliser un certificat fourni par l'établissement plutôt que l'autorité locale : `sudo ./installer/install.sh --certificat patiento.crt --cle patiento.key` (voir [Utiliser le certificat de l'établissement](#utiliser-le-certificat-de-létablissement)).
 
 ### Ce que fait le script
 
 | Étape | Détail |
 | --- | --- |
-| Paquets | Python 3, LibreOffice Impress, poppler-utils, polices de substitution pour les PowerPoint, Chromium |
+| Paquets | Python 3, OpenSSL, LibreOffice Impress, poppler-utils, polices de substitution pour les PowerPoint, Chromium |
+| HTTPS | autorité locale autosignée et certificat du Pi (ou certificat fourni avec `--certificat`) dans `/var/lib/patiento/tls`, minuteur mensuel `patiento-certificats.timer` pour le renouvellement |
 | Application | copiée dans `/opt/patiento`, données dans `/var/lib/patiento` |
 | Service | utilisateur système dédié `appel`, service systemd `patiento` démarré au boot et relancé en cas de plantage, avec des protections systemd (système en lecture seule, pas d'accès aux dossiers personnels) |
 | Voix (option) | environnement Python dédié, Piper et la voix `fr_FR-siwis-medium` dans `/opt/patiento/voix` |
@@ -165,9 +168,78 @@ Relancer le script met l'application à jour **sans toucher aux données**.
 - Laisser la TV **hors réseau** : seul le Pi est connecté.
 - Fixer la TV en hauteur, visible de toute la salle, et vérifier la lisibilité depuis la place la plus éloignée.
 
+### Connexion sécurisée (HTTPS)
+
+Sur le Pi, Patiento fonctionne **en HTTPS** : les échanges entre les postes et le Pi sont chiffrés, ce qui empêche toute personne connectée au même Wi-Fi de lire les noms des patients. Deux modes sont possibles :
+
+| Mode | Pour qui | Sur les postes |
+| --- | --- | --- |
+| **Autorité locale autosignée** (par défaut) | structures sans service informatique | chaque poste installe une fois le certificat, avec un guide affiché automatiquement |
+| **Certificat de l'établissement** (`--certificat`) | établissements qui ont déjà leur propre autorité de certification | rien à installer, si les postes font déjà confiance à cette autorité |
+
+#### Mode par défaut : autorité locale autosignée
+
+Le script d'installation crée une **autorité de certification locale**, propre à la structure. Son certificat est **autosigné** : c'est l'autorité elle-même qui le signe, et non un organisme reconnu par les navigateurs comme Let's Encrypt ou une autorité commerciale. Cette autorité signe ensuite le **certificat du Pi**, qui couvre son IP, son nom (`nom-du-pi.local`) et `localhost`.
+
+Conséquences :
+
+- **Le chiffrement est le même** qu'avec un certificat commercial.
+- **Les navigateurs ne connaissent pas cette autorité** : chaque poste doit lui faire confiance une fois, sinon il affiche un avertissement de sécurité.
+- **Aucun service extérieur** n'est utilisé : pas de nom de domaine à acheter, pas d'accès à Internet pour renouveler le certificat.
+- L'autorité est valable **10 ans** et ne sert qu'à cette installation. Le certificat du Pi (825 jours) est vérifié **chaque mois** par un minuteur, puis renouvelé s'il expire dans moins de 60 jours ou si l'IP du Pi a changé. L'autorité ne change pas : **rien à refaire sur les postes**.
+- La clé privée de l'autorité reste sur le Pi, lisible par le compte administrateur uniquement.
+
+**Ce que voit l'utilisateur.** Le praticien ouvre son lien habituel (`http://IP-DU-PI/appel?salle=3`, favori ou raccourci) :
+
+- si son poste fait déjà confiance à l'autorité, il bascule **automatiquement et sans rien voir** en HTTPS ;
+- sinon, au lieu de l'avertissement du navigateur, une page **« Une étape avant de continuer »** s'affiche. Elle détecte l'appareil (Windows, Mac, iPhone, iPad, Android, Firefox) et donne les étapes correspondantes, avec un bouton de téléchargement. Une fois le certificat installé, le bouton **« C'est fait, continuer »** vérifie la connexion et ouvre la page demandée.
+
+Sous Windows, le guide installe le certificat pour **l'utilisateur actuel** : **aucun droit d'administrateur n'est nécessaire**. Le guide est aussi accessible à tout moment à l'adresse `http://IP-DU-PI/certificat`, et depuis la page Contenus, pour équiper un nouvel appareil.
+
+Pour vérifier qu'on installe le bon certificat, comparer son **empreinte** avec celle affichée à la fin de l'installation. Windows montre l'empreinte SHA-1 dans l'onglet **Détails** du certificat. Sur le Pi : `openssl x509 -in /var/lib/patiento/tls/ca.crt -noout -fingerprint -sha256` (ou `-sha1`).
+
+<details>
+<summary>Étapes détaillées par appareil (identiques à celles du guide intégré)</summary>
+
+Télécharger d'abord le certificat à l'adresse `http://IP-DU-PI/certificat.crt`, puis :
+
+| Appareil | Étapes |
+| --- | --- |
+| **Windows** (Edge, Chrome) | Ouvrir le fichier › **Installer le certificat…** › **Utilisateur actuel** › **Placer tous les certificats dans le magasin suivant** › **Parcourir** › **Autorités de certification racines de confiance** › **Terminer**, puis répondre **Oui** à l'avertissement. Fermer et rouvrir le navigateur si besoin. |
+| **Mac** (Safari, Chrome) | Ouvrir le fichier : **Trousseaux d'accès** s'ouvre, l'ajouter au trousseau **session**. Double-cliquer sur « Patiento - autorité locale » › **Se fier** › **Toujours approuver**, fermer et saisir le mot de passe. |
+| **iPhone, iPad** | Dans **Safari**, télécharger › **Autoriser** › **Réglages** › **Profil téléchargé** › **Installer**. Puis **Réglages** › **Général** › **Informations** › **Réglages des certificats** › activer « Patiento - autorité locale ». |
+| **Android** | **Paramètres** › **Sécurité** › **Chiffrement et identifiants** › **Installer un certificat** › **Certificat CA**, puis choisir le fichier. Le chemin varie selon la marque. |
+| **Firefox** (ordinateur) | **Paramètres** › **Vie privée et sécurité** › **Certificats** › **Afficher les certificats** › **Autorités** › **Importer**, cocher **Confirmer cette AC pour identifier des sites web**. |
+
+</details>
+
+#### Utiliser le certificat de l'établissement
+
+Si l'établissement dispose de sa propre autorité de certification, déjà installée sur ses postes (par stratégie de groupe, gestion de parc…), il peut fournir un certificat pour le Pi. Les postes le reconnaissent alors directement, **sans aucune installation** ni page intermédiaire.
+
+1. Demander au service informatique un certificat pour le Pi. Ce certificat doit couvrir, dans le champ *Subject Alternative Name*, l'adresse que les praticiens utiliseront : son nom DNS (`patiento.etablissement.fr`, par exemple) et/ou son IP. Il faut deux fichiers au format PEM :
+   - le **certificat**, suivi des certificats intermédiaires s'il y en a (chaîne complète) ;
+   - la **clé privée**, non chiffrée.
+2. Installer, ou réinstaller, en indiquant ces fichiers :
+
+   ```bash
+   sudo ./installer/install.sh --certificat patiento.crt --cle patiento.key   # (+ --avec-voix si besoin)
+   ```
+
+Le script vérifie que le certificat et la clé correspondent, remplace l'autorité locale, puis désactive le renouvellement automatique. Le minuteur mensuel affiche seulement un avertissement dans le journal (`journalctl -u patiento-certificats`) quand le certificat expire dans moins de 30 jours. **Pour le renouveler**, relancer la même commande avec le nouveau certificat.
+
+Pour revenir à l'autorité locale : `sudo rm -r /var/lib/patiento/tls`, puis relancer `sudo ./installer/install.sh` sans `--certificat`. Une nouvelle autorité est créée : les postes devront l'installer à nouveau.
+
+#### Bon à savoir
+
+- Les anciennes adresses en `http://` (favoris, raccourcis) **restent valables** : elles passent par la vérification, puis basculent en HTTPS.
+- La TV reste en `http://localhost` : elle est branchée sur le Pi lui-même, donc rien ne passe par le réseau.
+- Le HTTPS protège les échanges, mais **ne remplace pas une authentification** : les pages restent accessibles à toute personne connectée au réseau. Réserver ce réseau au personnel.
+- **Désactiver le HTTPS** (déconseillé avec du Wi-Fi) : `sudo systemctl disable --now patiento-certificats.timer`, `sudo rm -r /var/lib/patiento/tls`, puis `sudo systemctl restart patiento`. Sans certificat, le serveur fonctionne en HTTP seul, comme sur un PC de test.
+
 ## Première configuration
 
-Depuis n'importe quel poste du réseau, ouvrir `http://IP-DU-PI/contenus` :
+Depuis un poste du réseau, ouvrir `http://IP-DU-PI/contenus` (le poste est guidé pour installer le certificat s'il ne l'a pas encore, puis bascule en HTTPS) :
 
 1. **Réglages** : saisir le nom affiché en haut de l'écran, la durée d'un appel, la durée par diapositive, la durée de visibilité des derniers appels et les horaires d'allumage de l'écran.
 2. **Salles, pôles et praticiens** : pour chaque salle, indiquer le numéro, le pôle et le praticien, puis **Enregistrer les salles**. Voir [Les salles](#les-salles) pour le détail.
@@ -270,6 +342,7 @@ Les noms des patients, associés à une structure de soins, sont des données de
 - Les noms restent **en mémoire vive** : jamais écrits sur disque ni dans les journaux, effacés de la liste après quelques minutes (5 par défaut) et à chaque redémarrage.
 - L'annonce vocale est générée **en mémoire**, sans fichier audio.
 - Seuls la civilité et le nom de famille sont affichés, avec l'initiale du prénom en cas d'homonymes.
+- Les échanges entre les postes et le Pi sont **chiffrés en HTTPS**, avec un certificat propre à la structure.
 - Aucune ressource n'est chargée depuis Internet : polices, scripts et sons sont servis par le Pi.
 - Les pages ne sont accessibles que depuis le réseau local. **Ne pas exposer le Pi sur Internet.**
 - Les pages n'ont pas d'authentification : toute personne connectée au réseau peut appeler un patient ou modifier les contenus. **Réserver ce réseau au personnel** (pas de Wi-Fi public partagé avec les patients).
@@ -282,15 +355,18 @@ Les noms des patients, associés à une structure de soins, sont des données de
 | Journal | `journalctl -u patiento -e` |
 | Redémarrer | `sudo systemctl restart patiento` |
 | Mettre à jour | récupérer la nouvelle version (`git pull`) puis relancer `sudo ./installer/install.sh` |
-| Sauvegarder la configuration | copier `/var/lib/patiento/config.json` (et le dossier `/var/lib/patiento/diapos` pour le diaporama) |
+| Sauvegarder la configuration | copier `/var/lib/patiento/config.json`, le dossier `/var/lib/patiento/diapos` pour le diaporama et le dossier `/var/lib/patiento/tls` pour garder la même autorité HTTPS en cas de réinstallation |
+| Vérifier le certificat | `systemctl list-timers patiento-certificats` et `openssl x509 -in /var/lib/patiento/tls/serveur.crt -noout -enddate` |
+| Renouveler le certificat maintenant | `sudo /usr/local/sbin/patiento-certificats /var/lib/patiento/tls appel --redemarrer` |
 
 Après installation, une image de la carte microSD permet de remettre le boîtier en service en quelques minutes.
 
 ### Désinstaller
 
 ```bash
-sudo systemctl disable --now patiento
-sudo rm /etc/systemd/system/patiento.service /usr/local/bin/appel-kiosque
+sudo systemctl disable --now patiento patiento-certificats.timer
+sudo rm /etc/systemd/system/patiento.service /etc/systemd/system/patiento-certificats.* \
+        /usr/local/bin/appel-kiosque /usr/local/sbin/patiento-certificats
 sudo rm -r /opt/patiento                      # application
 sudo rm -r /var/lib/patiento                  # données (config, diaporama) : à sauvegarder avant
 rm ~/.config/autostart/appel-kiosque.desktop  # démarrage de l'écran kiosque
@@ -302,7 +378,8 @@ Le serveur se configure par variables d'environnement (le script d'installation 
 
 | Variable | Rôle | Défaut |
 | --- | --- | --- |
-| `APPEL_PORT` | port d'écoute | `8080` (le script d'installation utilise `80`) |
+| `APPEL_PORT` | port d'écoute HTTP | `8080` (le script d'installation utilise `80`) |
+| `APPEL_PORT_HTTPS` | port d'écoute HTTPS, utilisé seulement si `tls/serveur.crt` et `tls/serveur.key` existent dans le dossier des données | `443` |
 | `APPEL_HOST` | adresse d'écoute | `0.0.0.0` |
 | `APPEL_DATA` | dossier des données | `./data` (`/var/lib/patiento` après installation) |
 | `APPEL_TTS_MODEL` | chemin d'une voix Piper (`.onnx`) | vide : voix du navigateur |
@@ -319,6 +396,8 @@ Les pages s'appuient sur une API JSON simple, utilisable pour des tests ou une i
 | GET | `/api/etat` | état complet (JSON) |
 | GET | `/api/voix/<id>` | WAV de l'annonce (si Piper est installé) |
 | GET | `/raccourci/<salle>.url` | raccourci bureau Windows |
+| GET | `/certificat` | guide d'installation du certificat, avec vérification automatique de la connexion HTTPS |
+| GET | `/certificat.crt` | certificat de l'autorité locale (mode par défaut), accessible aussi en HTTP |
 | POST | `/api/appel` | `{salle, civilite: "Mme"\|"M.", nom, precision}` |
 | POST | `/api/rappel` | `{id}` |
 | POST | `/api/annulation` | `{id}` |
@@ -340,6 +419,9 @@ curl -s -X POST localhost:8080/api/appel -H 'Content-Type: application/json' \
 
 | Problème | Solution |
 | --- | --- |
+| « La connexion n'est pas privée » ou « Avertissement : risque probable de sécurité » | Le poste ne fait pas confiance au certificat. Ouvrir `http://IP-DU-PI/certificat` et suivre le guide. Si l'avertissement apparaît sur tous les postes d'un coup, vérifier que l'adresse utilisée est bien l'IP ou le nom du Pi. |
+| « Certificat non reconnu » avec un certificat d'établissement | Le poste n'a pas l'autorité de l'établissement, ou l'adresse utilisée n'est pas couverte par le certificat : voir avec le service informatique. |
+| Le guide réapparaît après « C'est fait » | Fermer et rouvrir le navigateur. Sous Firefox, importer le certificat dans Firefox lui-même. |
 | Pas de son sur le PC de test | Cliquer une fois sur l'écran : le navigateur bloque le son tant qu'on n'a pas interagi avec la page. Le kiosque du Pi est lancé avec l'option qui lève ce blocage. |
 | Le PowerPoint s'affiche mal | Les polices absentes du Pi sont remplacées. Les polices Microsoft courantes (Calibri, Cambria) ont des équivalents installés ; sinon, exporter la présentation en PDF depuis PowerPoint et déposer le PDF. |
 | « Connexion au serveur perdue » sur la TV | Vérifier que le service tourne (`systemctl status patiento`). L'écran se reconnecte tout seul. |
@@ -358,6 +440,7 @@ Patiento/
 │   ├── commun.js             connexion temps réel et utilitaires
 │   └── polices/              police Atkinson Hyperlegible Next, servie en local
 ├── installer/install.sh      installation complète sur Raspberry Pi
+├── installer/certificats.sh  autorité locale et certificat HTTPS du Pi
 ├── data/config.example.json  exemple de configuration (noms fictifs)
 ├── docs/                     captures d'écran du README (données fictives)
 ├── LICENSE                   licence MIT

@@ -109,6 +109,7 @@
   <section class="carte" id="liens">
     <h2>Liens d'appel des praticiens</h2>
     <p>Chaque praticien garde le lien de sa salle en favori, ou télécharge le raccourci et le place sur son bureau.</p>
+    <p class="aide" id="certificat" hidden>Connexion sécurisée (HTTPS) : un nouveau poste qui ouvre son lien est guidé automatiquement pour installer le certificat de la structure. <a href="/certificat">Voir le guide d'installation</a>.</p>
     <div id="liste-liens" style="display:grid; gap:10px"></div>
   </section>
 
@@ -302,6 +303,9 @@
     } catch (err) { notifier(err.message, true); }
   });
 
+  if (location.protocol === "https:") {
+    fetch("/certificat.crt", { method: "HEAD" }).then((r) => { $("certificat").hidden = !r.ok; }).catch(() => {});
+  }
   ecouterEtat((e) => {
     etat = e;
     $("cabinet").textContent = e.cabinet;
