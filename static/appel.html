@@ -6,23 +6,35 @@
 <title>Appel patient</title>
 <link rel="stylesheet" href="/static/commun.css">
 <style>
-  .formulaire { display: grid; gap: 14px; grid-template-columns: 150px 1fr 120px; align-items: end; }
+  .formulaire { display: grid; gap: 14px; grid-template-columns: 170px 1fr 120px; align-items: end; }
+  .civilite { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+  .civilite legend { font-weight: 600; font-size: .9rem; padding: 0; margin-bottom: 6px; }
+  .civilite .choix { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .civilite input { position: absolute; opacity: 0; pointer-events: none; }
+  .civilite label {
+    display: grid; place-items: center; padding: 9px 0; border: 1px solid var(--champ-trait); border-radius: 10px;
+    background: var(--carte); cursor: pointer; font-size: 1.05rem; transition: background .15s, border-color .15s;
+  }
+  .civilite label:hover { border-color: var(--accent); }
+  .civilite input:checked + label { background: var(--accent); border-color: var(--accent); color: var(--sur-sombre); }
+  .civilite input:focus-visible + label { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
   .formulaire .bouton, .formulaire .apercu { grid-column: 1 / -1; }
   .apercu {
     margin: 0; padding: 14px 16px; border-radius: 10px; background: var(--accent-clair);
     color: var(--accent-fonce); font-size: 1.1rem; font-weight: 600; min-height: 1.45em;
   }
-  .apercu.vide-apercu { background: #f1eee7; color: var(--doux); font-weight: 400; }
+  .apercu.vide-apercu { background: var(--neutre-clair); color: var(--doux); font-weight: 400; }
   .choix-salles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
   .choix-salles a {
     display: grid; gap: 2px; padding: 16px; border: 1px solid var(--trait); border-radius: 10px;
-    background: #fff; text-decoration: none; color: var(--encre);
+    background: var(--carte); text-decoration: none; color: var(--encre);
   }
   .choix-salles a:hover { border-color: var(--accent); background: var(--accent-clair); }
   .choix-salles strong { font-size: 1.15rem; }
   @media (max-width: 600px) {
     .formulaire { grid-template-columns: 1fr 1fr; }
-    .formulaire .nom { grid-column: 1 / -1; order: -1; }
+    .formulaire .civilite { grid-column: 1 / -1; }
+    .formulaire .nom { grid-column: 1 / -1; }
   }
 </style>
 </head>
@@ -47,13 +59,13 @@
   <section class="carte">
     <h2>Appeler un patient</h2>
     <form class="formulaire" id="formulaire" autocomplete="off">
-      <label>Civilité
-        <select id="civilite" required>
-          <option value="" selected disabled>Choisir…</option>
-          <option value="Mme">Mme</option>
-          <option value="M.">M.</option>
-        </select>
-      </label>
+      <fieldset class="civilite" id="civilite">
+        <legend>Civilité</legend>
+        <div class="choix">
+          <input type="radio" name="civilite" id="civ-mme" value="Mme" required><label for="civ-mme">Mme</label>
+          <input type="radio" name="civilite" id="civ-m" value="M."><label for="civ-m">M.</label>
+        </div>
+      </fieldset>
       <label class="nom">Nom de famille
         <input type="text" id="nom" maxlength="40" required autocapitalize="words" spellcheck="false">
       </label>
@@ -80,8 +92,10 @@
   let decalage = 0;
   let salleInconnueSignalee = false;
 
+  const civilite = () => document.querySelector("input[name=civilite]:checked")?.value || "";
+
   function phrase() {
-    const civ = $("civilite").value;
+    const civ = civilite();
     const nom = $("nom").value.trim().replace(/\s+/g, " ");
     const ini = $("precision").value.trim().toUpperCase();
     if (!civ || !nom) return "";
@@ -152,12 +166,12 @@
     bouton.disabled = true;
     try {
       const appel = await envoyerJson("/api/appel", {
-        salle, civilite: $("civilite").value, nom: $("nom").value, precision: $("precision").value,
+        salle, civilite: civilite(), nom: $("nom").value, precision: $("precision").value,
       });
       notifier(`Appel envoyé : ${appel.identite}`);
       $("formulaire").reset();
       majApercu();
-      $("civilite").focus();
+      $("civ-mme").focus();
     } catch (err) {
       notifier(err.message, true);
     } finally {

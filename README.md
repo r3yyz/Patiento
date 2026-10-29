@@ -64,6 +64,7 @@ Les présentations PowerPoint (`.pptx`, `.ppt`, `.ppsx`, `.pps`), OpenDocument (
 Patiento/
 ├── server.py            serveur HTTP (bibliothèque standard Python uniquement)
 ├── static/              pages et ressources web (accueil, appel, contenus, écran)
+│   └── polices/         police Atkinson Hyperlegible Next, servie en local (licence OFL)
 ├── installer/install.sh installation complète sur Raspberry Pi
 ├── data/config.example.json   exemple de configuration (noms fictifs)
 └── README.md

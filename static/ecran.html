@@ -4,31 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Écran salle d'attente</title>
+<link rel="stylesheet" href="/static/polices/polices.css">
 <style>
   :root {
-    --nuit: #11202a;
-    --nuit-2: #18303c;
-    --texte: #f4f1ea;
-    --doux: #a9bac2;
-    --accent: #0e6b66;
-    --accent-vif: #5fd0bd;
-    --sable: #f5f3ee;
-    font-family: "Inter", "Segoe UI", system-ui, "DejaVu Sans", sans-serif;
+    --nuit: #0b1730;
+    --nuit-2: #13254a;
+    --texte: #f5f7fa;
+    --doux: #a8b6cc;
+    --accent: #1e4fc2;
+    --accent-vif: #3fd0e0;
+    --sable: #f5f7fa;
+    --noir: #000;
+    --appel-clair: #2b62dc;
+    --appel-fonce: #123a94;
+    --recents-fond: rgba(11, 23, 48, .9);
+    --recents-trait: rgba(255, 255, 255, .12);
+    --progression: rgba(255, 255, 255, .55);
+    --son-fond: #f6c453;
+    --son-texte: #2b1d00;
+    --alerte: #b0412a;
+    --sur-alerte: #fff;
+    font-family: "Atkinson Hyperlegible Next", "Segoe UI", system-ui, "DejaVu Sans", sans-serif;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; overflow: hidden; background: var(--nuit); color: var(--texte); cursor: none; }
 
   .ecran { display: grid; grid-template-rows: 9vh 1fr auto; height: 100vh; }
 
   /* En-tête */
   .haut { display: flex; align-items: center; justify-content: space-between; padding: 0 3vw; background: var(--nuit); }
-  .cabinet { font-size: 3.2vh; font-weight: 700; letter-spacing: .01em; }
+  .cabinet { font-size: 3.2vh; font-weight: 700; letter-spacing: .01em; display: flex; align-items: center; gap: 1.2vw; }
+  .cabinet::before { content: ""; width: .7vh; height: 4.4vh; border-radius: 1vh; background: linear-gradient(var(--accent-vif), var(--accent)); }
   .horloge { display: flex; align-items: baseline; gap: 1.4vw; }
   .heure { font-size: 4.4vh; font-weight: 700; font-variant-numeric: tabular-nums; }
   .date { font-size: 2.6vh; color: var(--doux); }
 
   /* Zone centrale : diaporama */
-  .centre { position: relative; background: #000; overflow: hidden; }
+  .centre { position: relative; background: var(--noir); overflow: hidden; }
   .diapo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 1.2s ease; }
   .diapo.visible { opacity: 1; }
   .accueil {
@@ -41,7 +54,7 @@
   /* Derniers appels */
   .recents {
     position: absolute; right: 2vw; bottom: 2.5vh; min-width: 26vw; max-width: 40vw;
-    background: rgba(17, 32, 42, .9); border: 1px solid rgba(255,255,255,.12); border-radius: 1.4vh;
+    background: var(--recents-fond); border: 1px solid var(--recents-trait); border-radius: 1.4vh;
     padding: 1.8vh 2vw; backdrop-filter: blur(6px); transition: opacity .4s;
   }
   .recents h2 { margin: 0 0 1vh; font-size: 2.1vh; text-transform: uppercase; letter-spacing: .1em; color: var(--accent-vif); }
@@ -54,7 +67,7 @@
   .bas { background: var(--nuit); }
   .salles { display: flex; flex-wrap: wrap; justify-content: center; gap: .6vh 3.2vw; padding: 1.6vh 3vw; font-size: 2.8vh; }
   .salles span b { color: var(--accent-vif); margin-right: .6vw; }
-  .salles i.pole { font-style: normal; text-transform: uppercase; letter-spacing: .08em; font-size: .75em; opacity: .65; align-self: center; }
+  .salles i.pole { font-style: normal; text-transform: uppercase; letter-spacing: .08em; font-size: .75em; color: var(--doux); align-self: center; }
   .messages { background: var(--sable); color: var(--nuit); font-size: 3.2vh; font-weight: 600; height: 6.4vh; overflow: hidden; position: relative; }
   .messages .piste { position: absolute; top: 0; left: 0; height: 100%; display: flex; align-items: center; white-space: nowrap; padding-left: 3vw; }
   .messages .piste.defile { animation: defiler linear infinite; padding-left: 0; }
@@ -64,30 +77,27 @@
   /* Appel plein écran */
   .appel {
     position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; text-align: center;
-    background: radial-gradient(ellipse at 50% 35%, #138179, var(--accent) 55%, #094a46);
+    background: radial-gradient(ellipse at 50% 35%, var(--appel-clair), var(--accent) 55%, var(--appel-fonce));
     animation: entree .5s ease;
   }
-  .appel[hidden] { display: none; }
   @keyframes entree { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: none; } }
   .appel .contenu { display: grid; gap: 2.4vh; padding: 0 5vw; }
   .appel .nom { font-size: 13vh; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
   .appel .suite { font-size: 5.2vh; opacity: .9; }
   .appel .salle {
     justify-self: center; font-size: 15vh; font-weight: 800; line-height: 1; padding: 2.2vh 5vw;
-    background: var(--texte); color: var(--accent); border-radius: 2.4vh; margin-top: 1vh;
+    background: var(--accent-vif); color: var(--nuit); border-radius: 2.4vh; margin-top: 1vh;
   }
   .appel .praticien { font-size: 3.6vh; opacity: .85; }
-  .appel .progression { position: absolute; left: 0; bottom: 0; height: 1vh; background: rgba(255,255,255,.55); width: 100%; transform-origin: left; }
+  .appel .progression { position: absolute; left: 0; bottom: 0; height: 1vh; background: var(--progression); width: 100%; transform-origin: left; }
 
   /* Hors horaires et son */
-  .nuit { position: fixed; inset: 0; background: #000; z-index: 10; }
-  .nuit[hidden] { display: none; }
+  .nuit { position: fixed; inset: 0; background: var(--noir); z-index: 10; }
   .son {
     position: fixed; top: 11vh; left: 50%; transform: translateX(-50%); z-index: 30; cursor: pointer;
-    background: #f6c453; color: #2b1d00; border: 0; border-radius: 99px; padding: 1.4vh 2.4vw; font: inherit; font-size: 2.4vh; font-weight: 700;
+    background: var(--son-fond); color: var(--son-texte); border: 0; border-radius: 99px; padding: 1.4vh 2.4vw; font: inherit; font-size: 2.4vh; font-weight: 700;
   }
-  .son[hidden], .alerte[hidden] { display: none; }
-  .alerte { position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 30; background: #b0412a; color: #fff; padding: .8vh 1.6vw; border-radius: 99px; font-size: 2vh; }
+  .alerte { position: fixed; top: 1vh; left: 50%; transform: translateX(-50%); z-index: 30; background: var(--alerte); color: var(--sur-alerte); padding: .8vh 1.6vw; border-radius: 99px; font-size: 2vh; }
 </style>
 </head>
 <body>

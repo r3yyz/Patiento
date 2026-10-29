@@ -8,25 +8,25 @@
 <style>
   .depot {
     display: grid; place-items: center; gap: 6px; text-align: center; padding: 28px 16px;
-    border: 2px dashed #c9c2b4; border-radius: 12px; background: #fcfbf8; cursor: pointer; transition: .15s;
+    border: 2px dashed var(--champ-trait); border-radius: 12px; background: var(--surface); cursor: pointer; transition: .15s;
   }
   .depot:hover, .depot.survol { border-color: var(--accent); background: var(--accent-clair); }
   .depot strong { font-size: 1.05rem; }
   .depot input { display: none; }
   .statut { margin: 0; padding: 10px 14px; border-radius: 9px; font-size: .92rem; }
-  .statut.en_cours { background: #fbecc8; color: #7a5609; }
+  .statut.en_cours { background: var(--attente); color: var(--attente-encre); }
   .statut.ok { background: var(--accent-clair); color: var(--accent-fonce); }
   .statut.erreur { background: var(--alerte-clair); color: var(--alerte); }
-  .barre { height: 6px; border-radius: 3px; background: #ece8df; overflow: hidden; }
+  .barre { height: 6px; border-radius: 3px; background: var(--neutre); overflow: hidden; }
   .barre span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   .vignettes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
-  .vignettes img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #111; border-radius: 6px; }
+  .vignettes img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--vignette); border-radius: 6px; }
   .salle-ligne { display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 10px; align-items: center; }
   .lien-ligne { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
-  .lien-ligne code { font-size: .88rem; background: #f1eee7; padding: 8px 10px; border-radius: 7px; overflow-wrap: anywhere; }
+  .lien-ligne code { font-size: .88rem; background: var(--neutre-clair); padding: 8px 10px; border-radius: 7px; overflow-wrap: anywhere; }
   .titre-carte { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
   nav.sommaire { display: flex; gap: 8px; flex-wrap: wrap; }
-  nav.sommaire a { font-size: .9rem; padding: 6px 12px; border-radius: 99px; background: #fff; border: 1px solid var(--trait); text-decoration: none; color: var(--encre); }
+  nav.sommaire a { font-size: .9rem; padding: 6px 12px; border-radius: 99px; background: var(--carte); border: 1px solid var(--trait); text-decoration: none; color: var(--encre); }
   @media (max-width: 600px) {
     .salle-ligne, .lien-ligne { grid-template-columns: 1fr; }
   }

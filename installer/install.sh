@@ -28,7 +28,6 @@ echo "==> Paquets système"
 apt-get update
 apt-get install -y python3 python3-venv curl poppler-utils libreoffice-impress \
   fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation2 fonts-dejavu-core
-apt-get install -y fonts-inter || echo "(police Inter indisponible, police système utilisée)"
 command -v chromium >/dev/null || command -v chromium-browser >/dev/null || \
   apt-get install -y chromium || apt-get install -y chromium-browser
 
