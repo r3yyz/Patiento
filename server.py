@@ -49,7 +49,7 @@ NOM_VALIDE = re.compile(r"^[A-Za-zÀ-ÖØ-öø-ÿŒœ' \-]{1,40}$")
 HEURE_VALIDE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 DEFAULT_CONFIG = {
-    "cabinet": "Maison de santé de Lamotte-Beuvron",
+    "cabinet": "Maison de santé",
     # Une salle = un cabinet de consultation, rattaché à un pôle. À adapter dans la page Contenus.
     "salles": (
         [{"salle": str(i), "pole": "Médecine", "praticien": ""} for i in range(1, 8)]      # 6 généralistes + 1 spécialistes
@@ -637,7 +637,11 @@ def main():
     store = Store(Voix(TTS_MODEL))
     Handler.store = store
     threading.Thread(target=store.boucle, daemon=True).start()
-    serveur = ThreadingHTTPServer((HOST, PORT), Handler)
+    try:
+        serveur = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as exc:
+        sys.exit(f"Impossible d'écouter sur le port {PORT} ({exc.strerror}). "
+                 f"Le port est peut-être déjà utilisé : essayer APPEL_PORT={PORT + 1} python3 server.py")
     serveur.daemon_threads = True
     print(f"Patiento en écoute sur http://{HOST}:{PORT}  (données : {DATA_DIR})", flush=True)
     try:

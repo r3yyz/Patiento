@@ -1,5 +1,5 @@
 {
-  "cabinet": "Maison de santé de Lamotte-Beuvron",
+  "cabinet": "Maison de santé des Tilleuls",
   "salles": [
     {
       "salle": "1",
@@ -65,7 +65,7 @@
   "messages": [
     {
       "id": "exemple1",
-      "texte": "Message d'exemple : la maison de santé est fermée le 1er mai",
+      "texte": "Message d'exemple : fermeture exceptionnelle le 1er mai",
       "jusqu_au": "2099-05-01"
     }
   ],

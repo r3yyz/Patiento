@@ -1,41 +1,61 @@
 # Patiento
 
-Système d'appel des patients pour la salle d'attente d'une maison de santé. Il est conçu pour la [maison de santé pluriprofessionnelle de Lamotte-Beuvron](https://www.coeurdesologne.com/jentreprends/chercher-un-local/la-maison-de-sante-pluriprofessionnelle/) (pôles médecine, dentaire, kinésithérapie et infirmiers) et reste adaptable à tout autre cabinet ou structure. Chaque praticien appelle son patient depuis son PC ou son smartphone ; la TV de la salle d'attente affiche « Mme Martin est attendue en salle 3 », joue un carillon et fait une annonce vocale. Entre deux appels, la TV montre un diaporama, les messages de la maison de santé et la liste des salles regroupées par pôle, avec leur praticien.
+**Système d'appel des patients pour salle d'attente**, destiné aux cabinets médicaux, paramédicaux et aux maisons de santé.
 
-Tout tient dans **un seul programme Python**, sans dépendance externe ni base de données, qui tourne sur un Raspberry Pi branché derrière la TV.
+Le praticien appelle son patient depuis son PC ou son smartphone. La TV de la salle d'attente affiche « Mme Martin est attendue en salle 3 », joue un carillon et fait une annonce vocale. Entre deux appels, elle montre un diaporama, les messages de la structure et la liste des salles avec leur praticien.
+
+![Écran de la salle d'attente pendant un appel](docs/ecran-appel.jpg)
+
+| Écran au repos | Page du praticien |
+| --- | --- |
+| ![Écran au repos : diaporama, derniers appels, salles et messages](docs/ecran-repos.jpg) | ![Page d'appel du praticien](docs/praticien.jpg) |
+
+*Captures réalisées avec des données fictives.*
+
+## Points forts
+
+- **Simple à installer** : un Raspberry Pi branché derrière la TV, un script d'installation, et c'est prêt.
+- **Sans abonnement ni cloud** : tout fonctionne sur le réseau local, même sans accès à Internet.
+- **Respectueux de la confidentialité** : les noms des patients restent en mémoire vive et ne sont jamais écrits sur le disque.
+- **Lisible de loin** : police conçue pour la lisibilité (Atkinson Hyperlegible Next), contrastes élevés, nom du patient affiché en très grand.
+- **Adaptable** : nombre de salles, pôles, praticiens, horaires et messages se règlent depuis une page web, sans toucher au code.
+- **Léger et maintenable** : un seul programme Python sans dépendance, des pages HTML/CSS/JavaScript sans framework, pas de base de données.
 
 ## Sommaire
 
 - [Fonctionnement](#fonctionnement)
 - [Les pages](#les-pages)
-- [Contenu du dépôt](#contenu-du-dépôt)
+- [Matériel nécessaire](#matériel-nécessaire)
 - [Essayer sur un PC](#essayer-sur-un-pc)
 - [Installer sur le Raspberry Pi](#installer-sur-le-raspberry-pi)
 - [Première configuration](#première-configuration)
-- [Adapter Patiento à une autre structure](#adapter-patiento-à-une-autre-structure)
+- [Adapter Patiento à votre structure](#adapter-patiento-à-votre-structure)
 - [Utilisation au quotidien](#utilisation-au-quotidien)
-- [Confidentialité](#confidentialité)
+- [Confidentialité et sécurité](#confidentialité-et-sécurité)
 - [Maintenance](#maintenance)
 - [Réglages avancés](#réglages-avancés)
 - [Dépannage](#dépannage)
+- [Contenu du dépôt](#contenu-du-dépôt)
+- [Crédits](#crédits)
 
 ## Fonctionnement
 
 ```
  PC / smartphone du praticien              Raspberry Pi                    TV (HDMI)
-┌──────────────────────────┐        ┌──────────────────────┐        ┌──────────────────┐
+┌──────────────────────────┐        ┌──────────────────────┐        ┌───────────────────┐
 │ http://IP-DU-PI/appel    │ appel  │  server.py           │ temps  │ Chromium (kiosque)│
 │ ?salle=3                 ├───────▶│  - appels en mémoire │ réel   │ /ecran            │
 │ « Mme Martin »  [Appeler]│  HTTP  │  - config.json       ├───────▶│ carillon + voix   │
-└──────────────────────────┘        │  - voix (option)     │  SSE   │ diaporama, messages│
-                                    └──────────────────────┘        └──────────────────┘
+└──────────────────────────┘        │  - voix (option)     │  SSE   │ diaporama,        │
+                                    └──────────────────────┘        │ messages, salles  │
+                                                                    └───────────────────┘
 ```
 
 1. Le praticien ouvre la page d'appel de **sa salle**, choisit M. ou Mme, saisit le nom de famille (et, en cas d'homonymes, l'initiale du prénom), puis clique sur **Appeler**.
-2. Le serveur enregistre l'appel **en mémoire vive uniquement** et prévient immédiatement l'écran par un flux d'événements (`/evenements`, Server-Sent Events). Il n'y a pas d'actualisation périodique : l'affichage est instantané.
-3. L'écran de la salle d'attente affiche la phrase en plein écran pendant la durée réglée (25 s par défaut), joue le carillon et lit l'annonce à voix haute.
-4. L'appel reste ensuite dans la liste des derniers appels (5 minutes par défaut), puis disparaît. Le praticien peut **rappeler** (l'annonce est rejouée) ou **annuler** un appel.
-5. Sans appel en cours, l'écran alterne le diaporama et les messages de la maison de santé, avec la liste des salles et des praticiens, regroupés par pôle, et l'horloge. En dehors des horaires réglés, l'écran passe au noir.
+2. Le serveur enregistre l'appel **en mémoire vive uniquement** et prévient immédiatement l'écran par un flux d'événements (`/evenements`, Server-Sent Events). L'affichage est instantané, sans actualisation périodique.
+3. La TV affiche la phrase en plein écran pendant la durée réglée (25 s par défaut), joue le carillon et lit l'annonce à voix haute. Si plusieurs praticiens appellent en même temps, les appels passent l'un après l'autre.
+4. L'appel reste ensuite dans l'encart « Derniers appels » (5 minutes par défaut), puis disparaît. Le praticien peut **rappeler** (l'annonce est rejouée) ou **annuler** un appel.
+5. Sans appel en cours, la TV affiche le diaporama, les messages qui défilent, la liste des salles et des praticiens (regroupés par pôle) et l'horloge. En dehors des horaires réglés, l'écran passe au noir.
 
 Les salles, les praticiens, les messages, le diaporama et les réglages sont enregistrés dans `config.json`. Aucun nom de patient n'y figure jamais.
 
@@ -43,39 +63,47 @@ Les salles, les praticiens, les messages, le diaporama et les réglages sont enr
 
 Deux modes, au choix à l'installation :
 
-- **Voix du navigateur** (par défaut) : l'écran utilise la synthèse vocale intégrée à Chromium.
+- **Voix du navigateur** (par défaut) : la TV utilise la synthèse vocale intégrée à Chromium.
 - **Voix Piper** (`--avec-voix`) : synthèse vocale française hors ligne, plus naturelle. La voix est générée en mémoire, sans fichier sur le disque, et envoyée à l'écran via `/api/voix/<id>`.
+
+L'annonce reprend la phrase affichée, avec « Madame » ou « Monsieur » en toutes lettres.
 
 ### Diaporama
 
-Les présentations PowerPoint (`.pptx`, `.ppt`, `.ppsx`, `.pps`), OpenDocument (`.odp`) et les PDF sont déposés depuis la page **Contenus** (200 Mo maximum). Le serveur les convertit en images avec LibreOffice et `pdftoppm`, puis l'écran les fait défiler. Les images `.png` et `.jpg` sont aussi acceptées. Un seul diaporama est actif à la fois, et une seule conversion peut tourner à la fois.
+Les présentations PowerPoint (`.pptx`, `.ppt`, `.ppsx`, `.pps`), OpenDocument (`.odp`) et les PDF se déposent depuis la page **Contenus** (200 Mo au maximum). Le serveur les convertit en images avec LibreOffice et `pdftoppm`, puis la TV les fait défiler. Les images `.png` et `.jpg` sont aussi acceptées. Un seul diaporama est actif à la fois. Les animations et transitions ne sont pas reprises.
 
-Pour des diapositives lisibles depuis le fond de la salle : format **16:9**, **gros caractères**, peu de texte. L'encart « Derniers appels » se superpose au **coin inférieur droit** de la diapositive pendant quelques minutes après chaque appel : n'y placer rien d'important. Les noms trop longs pour une ligne sont réduits automatiquement sur l'écran d'appel.
+Conseils pour des diapositives lisibles depuis le fond de la salle :
+
+- format **16:9**, **gros caractères**, peu de texte ;
+- rien d'important dans le **coin inférieur droit** : l'encart « Derniers appels » s'y superpose pendant quelques minutes après chaque appel.
 
 ## Les pages
 
 | Adresse | Pour qui | Rôle |
 | --- | --- | --- |
-| `/appel?salle=3` | Praticien | Appeler, rappeler ou annuler un appel pour sa salle |
+| `/` | Tous | Accueil avec les liens vers les autres pages |
+| `/appel?salle=3` | Praticien | Appeler, rappeler ou annuler un appel pour sa salle (PC ou smartphone) |
 | `/contenus` | Secrétariat, gestionnaire | Diaporama, messages, salles et praticiens, liens d'appel, réglages |
 | `/ecran` | TV | Affichage de la salle d'attente |
-| `/` | Tous | Accueil avec les liens vers les pages |
 
-## Contenu du dépôt
+<img src="docs/praticien-mobile.jpg" alt="Page d'appel sur smartphone" width="260">
 
-```
-Patiento/
-├── server.py            serveur HTTP (bibliothèque standard Python uniquement)
-├── static/              pages et ressources web (accueil, appel, contenus, écran)
-│   └── polices/         police Atkinson Hyperlegible Next, servie en local (licence OFL)
-├── installer/install.sh installation complète sur Raspberry Pi
-├── data/config.example.json   exemple de configuration (noms fictifs)
-└── README.md
-```
+## Matériel nécessaire
+
+| Élément | Recommandation |
+| --- | --- |
+| Ordinateur | Raspberry Pi 4 ou 5, 4 Go de mémoire conseillés (la conversion des PowerPoint est gourmande), carte microSD de 32 Go |
+| Système | Raspberry Pi OS **avec bureau**, version Bookworm ou plus récente |
+| Écran | TV Full HD avec entrée HDMI, de préférence avec HDMI-CEC et une mise en veille automatique désactivable |
+| Son | haut-parleurs de la TV (le son passe par le HDMI) |
+| Réseau | prise Ethernet près de la TV et **adresse IP fixe** pour le Pi (réservation DHCP) |
+| Postes des praticiens | n'importe quel navigateur récent, sur le même réseau local |
+
+Le Pi a besoin d'Internet **uniquement pendant l'installation** (paquets système et, en option, voix Piper).
 
 ## Essayer sur un PC
 
-Il faut Python 3.9 ou plus récent.
+Il faut Python 3.9 ou plus récent, sans aucune bibliothèque à installer.
 
 ```bash
 python3 server.py
@@ -83,29 +111,22 @@ python3 server.py
 
 Puis :
 
-- ouvrir `http://localhost:8080/contenus` pour renseigner les salles ;
-- ouvrir `http://localhost:8080/ecran` dans une autre fenêtre (touche F11 pour le plein écran) ;
-- cliquer une fois sur la page écran pour autoriser le son ;
-- faire les appels depuis `http://localhost:8080/appel`.
+1. ouvrir `http://localhost:8080/contenus` pour renseigner les salles ;
+2. ouvrir `http://localhost:8080/ecran` dans une autre fenêtre (touche F11 pour le plein écran) ;
+3. cliquer une fois sur la page écran pour autoriser le son ;
+4. faire les appels depuis `http://localhost:8080/appel`.
 
-La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm` (paquet `poppler-utils`). Sans eux, les appels et les messages fonctionnent, seul le dépôt de présentations échoue.
-
-En mode essai, les données sont stockées dans le dossier `data/` du projet. Sans fichier `data/config.json`, le serveur démarre avec la structure de la maison de santé (12 salles réparties en 4 pôles, sans nom de praticien). Pour partir d'un exemple rempli avec des noms fictifs :
+Sans fichier `data/config.json`, le serveur démarre avec une configuration type de maison de santé : 12 salles réparties en 4 pôles, sans nom de praticien. Pour partir d'un exemple rempli avec des noms fictifs :
 
 ```bash
 cp data/config.example.json data/config.json
 ```
 
-Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont **pas versionnés** (voir `.gitignore`) : la configuration réelle ne part jamais sur GitHub. Seul `config.example.json` est publié.
+Si le port 8080 est déjà pris : `APPEL_PORT=8081 python3 server.py`.
+
+La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm` (paquet `poppler-utils`, ou `brew install poppler` sur Mac). Sans eux, tout fonctionne sauf le dépôt de présentations.
 
 ## Installer sur le Raspberry Pi
-
-### Matériel et prérequis
-
-- Un Raspberry Pi relié à la TV en HDMI et au réseau de la maison de santé **par câble**.
-- Raspberry Pi OS **avec bureau**, version Bookworm ou plus récente.
-- Une **IP fixe** pour le Pi : demander au gestionnaire réseau une réservation DHCP sur l'adresse MAC.
-- Un accès à Internet pendant l'installation (paquets, et voix Piper si l'option est choisie).
 
 ### Installation
 
@@ -123,13 +144,13 @@ Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont 
    sudo reboot
    ```
 
-Au redémarrage, la TV affiche directement l'écran de la salle d'attente. L'application écoute sur le port 80 : les praticiens utilisent `http://IP-DU-PI/appel?salle=N`.
+Au redémarrage, la TV affiche directement l'écran de la salle d'attente. L'application écoute sur le port 80 : les praticiens utilisent `http://IP-DU-PI/appel?salle=N`. Le script affiche ces adresses à la fin de l'installation.
 
 ### Ce que fait le script
 
 | Étape | Détail |
 | --- | --- |
-| Paquets | Python 3, LibreOffice Impress, poppler-utils, polices, Chromium |
+| Paquets | Python 3, LibreOffice Impress, poppler-utils, polices de substitution pour les PowerPoint, Chromium |
 | Application | copiée dans `/opt/patiento`, données dans `/var/lib/patiento` |
 | Service | utilisateur système dédié `appel`, service systemd `patiento` démarré au boot et relancé en cas de plantage, avec des protections systemd (système en lecture seule, pas d'accès aux dossiers personnels) |
 | Voix (option) | environnement Python dédié, Piper et la voix `fr_FR-siwis-medium` dans `/opt/patiento/voix` |
@@ -137,29 +158,30 @@ Au redémarrage, la TV affiche directement l'écran de la salle d'attente. L'app
 
 Relancer le script met l'application à jour **sans toucher aux données**.
 
-### Réglages de la TV (Hisense 40A5S)
+### Réglages de la TV
 
-- Désactiver la **mise en veille automatique** (sinon la TV s'éteint après quelques heures sans télécommande).
-- Activer le **HDMI-CEC** et, si le menu le propose, programmer l'allumage à 7 h 55 et l'extinction à 21 h. À défaut, l'écran passe au noir en dehors des horaires réglés dans la page Contenus.
+- Désactiver la **mise en veille automatique**, sinon la TV s'éteint après quelques heures sans utilisation de la télécommande.
+- Si la TV le permet, programmer l'allumage et l'extinction aux heures d'ouverture. À défaut, l'écran passe au noir en dehors des horaires réglés dans la page Contenus.
 - Laisser la TV **hors réseau** : seul le Pi est connecté.
+- Fixer la TV en hauteur, visible de toute la salle, et vérifier la lisibilité depuis la place la plus éloignée.
 
 ## Première configuration
 
-Depuis n'importe quel PC de la maison de santé, ouvrir `http://IP-DU-PI/contenus` :
+Depuis n'importe quel poste du réseau, ouvrir `http://IP-DU-PI/contenus` :
 
 1. **Réglages** : saisir le nom affiché en haut de l'écran, la durée d'un appel, la durée par diapositive, la durée de visibilité des derniers appels et les horaires d'allumage de l'écran.
-2. **Salles, pôles et praticiens** : pour chaque salle, indiquer le numéro, le pôle (Médecine, Dentaire, Kinésithérapie, Infirmiers) et le praticien (le bouton « Ajouter une salle » en crée d'autres). Les salles proposées par défaut (6 cabinets de généralistes et 1 de spécialistes, 2 dentaire, 2 kinésithérapie, 1 infirmiers) sont une base à ajuster au bâtiment réel. Une salle sans nom de praticien n'est pas affichée en bas de l'écran. Enregistrer.
+2. **Salles, pôles et praticiens** : pour chaque salle, indiquer le numéro, le pôle et le praticien, puis **Enregistrer les salles**. Voir [Les salles](#les-salles) pour le détail.
 3. **Liens d'appel des praticiens** : chaque praticien met en favori le lien de sa salle, ou télécharge le **raccourci bureau** (`.url`) et le place sur son bureau.
-4. **Messages** (facultatif) : ajouter un texte et, si besoin, une date de fin (« Jusqu'au »). Le message n'est plus affiché sur l'écran après cette date.
-5. **Diaporama** (facultatif) : déposer une présentation PowerPoint, un PDF ou des images.
+4. **Messages** (facultatif) : ajouter un texte et, si besoin, une date de fin. Le message disparaît de l'écran après cette date.
+5. **Diaporama** (facultatif) : déposer une présentation PowerPoint, un PDF ou une image.
 
-Le bouton « Voir l'écran » ouvre l'affichage de la salle d'attente pour contrôler le résultat.
+Le bouton « Voir l'écran ↗ » ouvre l'affichage de la salle d'attente pour contrôler le résultat.
 
-## Adapter Patiento à une autre structure
+## Adapter Patiento à votre structure
 
-Patiento est réglé pour la maison de santé de Lamotte-Beuvron, mais rien n'est figé. Ce tableau récapitule tout ce qui peut changer d'un cabinet à l'autre, et où le modifier.
+Tout ce qui change d'une structure à l'autre, et où le modifier :
 
-| Ce qui change | Où le modifier | Faut-il redémarrer ? |
+| Ce qui change | Où le modifier | Redémarrage |
 | --- | --- | --- |
 | Nom affiché en haut de l'écran | page Contenus › Réglages | non |
 | Nombre de salles, numéros, pôles, praticiens | page Contenus › Salles | non |
@@ -179,10 +201,10 @@ Une « salle » est un lieu où l'on appelle un patient : un cabinet de consulta
 - **Ajouter une salle** : bouton « + Ajouter une salle », remplir la ligne, puis **Enregistrer les salles**.
 - **Retirer une salle** : bouton « Retirer » sur la ligne, puis **Enregistrer les salles**. Il faut garder au moins une salle.
 - **Numéro** : texte libre de 10 caractères au maximum. Des chiffres (`3`), une lettre (`B`) ou un mot court (`Soins`) conviennent : l'écran affichera « est attendue en salle B ». Chaque numéro doit être unique.
-- **Pôle** : texte libre de 40 caractères au maximum (« Médecine », « Podologie », « Sages-femmes »…). Les salles d'un même pôle sont regroupées en bas de l'écran **dans l'ordre de la liste** : garder les salles d'un même pôle à la suite. Pour un cabinet sans pôles (par exemple 5 kinésithérapeutes), laisser le champ vide : les salles s'affichent simplement les unes après les autres.
+- **Pôle** : texte libre de 40 caractères au maximum (« Médecine », « Podologie », « Sages-femmes »…). Les salles d'un même pôle sont regroupées en bas de l'écran **dans l'ordre de la liste** : garder les salles d'un même pôle à la suite. Pour un cabinet sans pôles, laisser le champ vide : les salles s'affichent simplement les unes après les autres.
 - **Praticien** : 60 caractères au maximum (« Dr Dupont », « Cabinet infirmier »). Laisser vide pour masquer la salle en bas de l'écran ; on peut toujours y appeler un patient.
 
-> **Attention aux liens des praticiens.** Le lien d'appel contient le numéro de salle (`/appel?salle=3`). Si on renumérote ou retire une salle, l'ancien lien affiche « La salle 3 n'existe pas » : redonner au praticien son nouveau lien ou son nouveau raccourci (section **Liens d'appel des praticiens**). Changer seulement le nom du praticien ne casse pas le lien.
+> **Attention aux liens des praticiens.** Le lien d'appel contient le numéro de salle (`/appel?salle=3`). Si on renumérote ou retire une salle, l'ancien lien affiche « La salle 3 n'existe pas » : redonner au praticien son nouveau lien ou son nouveau raccourci. Changer seulement le nom du praticien ne casse pas le lien.
 
 Exemples :
 
@@ -194,7 +216,7 @@ Exemples :
 
 ### Préparer la configuration avant l'installation
 
-Pour déployer dans une autre structure sans tout ressaisir sur place :
+Pour déployer sans tout ressaisir sur place :
 
 1. Copier `data/config.example.json` dans `data/config.json` et l'éditer : nom (`cabinet`), salles, durées, horaires. Les durées sont bornées : `duree_appel` de 5 à 120 s, `duree_diapo` de 3 à 120 s, `duree_historique` de 1 à 30 min ; `horaires` au format `HH:MM`.
 2. Installer le Pi normalement, puis copier ce fichier dans `/var/lib/patiento/config.json` et redémarrer le service :
@@ -211,7 +233,7 @@ Pour changer la configuration de départ de toutes les futures installations (sa
 
 ### Valeurs fixées dans le code
 
-Tout ce qu'un cabinet a besoin de changer au quotidien se règle dans la page Contenus. Les valeurs ci-dessous sont plus rarement modifiées : elles sont écrites dans le code et se changent en éditant le fichier indiqué. Sur le Pi, relancer ensuite `sudo ./installer/install.sh` pour copier la nouvelle version.
+Ce qui se change au quotidien se règle dans la page Contenus. Les valeurs ci-dessous sont plus rarement modifiées : elles sont écrites dans le code et se changent en éditant le fichier indiqué. Sur le Pi, relancer ensuite `sudo ./installer/install.sh` pour copier la nouvelle version.
 
 | Valeur | Défaut | Fichier |
 | --- | --- | --- |
@@ -235,18 +257,22 @@ Tout ce qu'un cabinet a besoin de changer au quotidien se règle dans la page Co
 
 ## Utilisation au quotidien
 
-**Praticien** : ouvrir la page de sa salle, choisir la civilité, saisir le nom de famille, cliquer sur **Appeler**. En cas de patients homonymes, renseigner l'initiale du prénom. Les boutons de la liste permettent de rappeler ou d'annuler un appel. Un même patient appelé deux fois dans la même salle n'apparaît qu'une fois.
+**Praticien** : ouvrir la page de sa salle, choisir **Mme** ou **M.**, saisir le nom de famille, cliquer sur **Appeler**. En cas de patients homonymes, renseigner l'initiale du prénom. L'aperçu montre la phrase exacte avant l'envoi. Les boutons de la liste permettent de rappeler ou d'annuler un appel. Un même patient appelé deux fois dans la même salle n'apparaît qu'une fois.
 
 **Secrétariat** : la page `/contenus` sert à changer un message, remplacer le diaporama ou modifier le praticien d'une salle, sans toucher à l'installation.
 
-**TV** : rien à faire. Elle s'allume, affiche l'écran et se reconnecte toute seule si le service redémarre.
+**TV** : rien à faire. Elle affiche l'écran au démarrage et se reconnecte toute seule si le service redémarre.
 
-## Confidentialité
+## Confidentialité et sécurité
 
-- Les noms des patients restent **en mémoire vive** : jamais écrits sur disque ni dans les journaux, effacés de la liste après quelques minutes (5 par défaut) et à chaque redémarrage.
+Les noms des patients, associés à une structure de soins, sont des données de santé indirectes. Patiento est conçu pour en conserver le moins possible :
+
+- Les noms restent **en mémoire vive** : jamais écrits sur disque ni dans les journaux, effacés de la liste après quelques minutes (5 par défaut) et à chaque redémarrage.
+- L'annonce vocale est générée **en mémoire**, sans fichier audio.
 - Seuls la civilité et le nom de famille sont affichés, avec l'initiale du prénom en cas d'homonymes.
-- Les pages ne sont accessibles que depuis le réseau de la maison de santé. **Ne pas exposer le Pi sur Internet.**
-- Les pages n'ont pas d'authentification : toute personne connectée au réseau de la maison de santé peut appeler un patient ou modifier les contenus. Réserver ce réseau au personnel.
+- Aucune ressource n'est chargée depuis Internet : polices, scripts et sons sont servis par le Pi.
+- Les pages ne sont accessibles que depuis le réseau local. **Ne pas exposer le Pi sur Internet.**
+- Les pages n'ont pas d'authentification : toute personne connectée au réseau peut appeler un patient ou modifier les contenus. **Réserver ce réseau au personnel** (pas de Wi-Fi public partagé avec les patients).
 
 ## Maintenance
 
@@ -283,10 +309,63 @@ Le serveur se configure par variables d'environnement (le script d'installation 
 
 Pour installer sur un autre port : `sudo APPEL_PORT=8080 ./installer/install.sh`. Avec `sudo`, vérifier que la variable est bien transmise (`sudo --preserve-env=APPEL_PORT` si nécessaire).
 
+### API
+
+Les pages s'appuient sur une API JSON simple, utilisable pour des tests ou une intégration :
+
+| Méthode | Chemin | Corps ou rôle |
+| --- | --- | --- |
+| GET | `/evenements` | flux SSE de l'état |
+| GET | `/api/etat` | état complet (JSON) |
+| GET | `/api/voix/<id>` | WAV de l'annonce (si Piper est installé) |
+| GET | `/raccourci/<salle>.url` | raccourci bureau Windows |
+| POST | `/api/appel` | `{salle, civilite: "Mme"\|"M.", nom, precision}` |
+| POST | `/api/rappel` | `{id}` |
+| POST | `/api/annulation` | `{id}` |
+| POST | `/api/messages` | `{texte, jusqu_au: "AAAA-MM-JJ"\|""}` |
+| POST | `/api/messages/suppression` | `{id}` |
+| POST | `/api/salles` | `{salles: [{salle, pole, praticien}]}` |
+| POST | `/api/reglages` | `{cabinet, duree_appel, duree_diapo, duree_historique, horaires: {debut, fin}}` |
+| POST | `/api/diaporama` | fichier brut dans le corps, nom dans l'en-tête `X-Nom-Fichier` (encodé en URL) |
+| POST | `/api/diaporama/suppression` | `{}` |
+
+Les erreurs de saisie renvoient un code 400 avec `{"erreur": "…"}` en français.
+
+```bash
+curl -s -X POST localhost:8080/api/appel -H 'Content-Type: application/json' \
+  -d '{"salle":"3","civilite":"Mme","nom":"Martin"}'
+```
+
 ## Dépannage
 
-- **Pas de son sur le PC de test** : cliquer une fois sur l'écran (le navigateur bloque le son tant qu'on n'a pas interagi avec la page). Le kiosque du Pi est lancé avec l'option qui lève ce blocage.
-- **Le PowerPoint s'affiche mal** : les polices absentes du Pi sont remplacées. Les polices Microsoft courantes (Calibri, Cambria) ont des équivalents installés ; sinon, exporter la présentation en PDF depuis PowerPoint et déposer le PDF.
-- **« Connexion au serveur perdue » sur la TV** : vérifier que le service tourne (`systemctl status patiento`) ; l'écran se reconnecte tout seul.
-- **L'écran reste noir** : vérifier les horaires dans `/contenus` (l'écran passe au noir en dehors de la plage réglée) et l'heure du Pi.
-- **Page inaccessible depuis un PC** : vérifier que le PC est sur le même réseau que le Pi et que l'IP du Pi n'a pas changé (réservation DHCP).
+| Problème | Solution |
+| --- | --- |
+| Pas de son sur le PC de test | Cliquer une fois sur l'écran : le navigateur bloque le son tant qu'on n'a pas interagi avec la page. Le kiosque du Pi est lancé avec l'option qui lève ce blocage. |
+| Le PowerPoint s'affiche mal | Les polices absentes du Pi sont remplacées. Les polices Microsoft courantes (Calibri, Cambria) ont des équivalents installés ; sinon, exporter la présentation en PDF depuis PowerPoint et déposer le PDF. |
+| « Connexion au serveur perdue » sur la TV | Vérifier que le service tourne (`systemctl status patiento`). L'écran se reconnecte tout seul. |
+| L'écran reste noir | Vérifier les horaires dans `/contenus` (l'écran passe au noir en dehors de la plage réglée) et l'heure du Pi. |
+| Page inaccessible depuis un poste | Vérifier que le poste est sur le même réseau que le Pi et que l'IP du Pi n'a pas changé (réservation DHCP). |
+| « La salle N n'existe pas » | La salle a été renumérotée ou retirée : redonner au praticien son nouveau lien depuis `/contenus`. |
+| « Impossible d'écouter sur le port » au lancement | Le port est déjà utilisé par un autre programme : relancer sur un autre port, par exemple `APPEL_PORT=8081 python3 server.py`. |
+
+## Contenu du dépôt
+
+```
+Patiento/
+├── server.py                 serveur HTTP (bibliothèque standard Python uniquement)
+├── static/                   pages web : accueil, appel, contenus, écran
+│   ├── commun.css            styles des pages PC
+│   ├── commun.js             connexion temps réel et utilitaires
+│   └── polices/              police Atkinson Hyperlegible Next, servie en local
+├── installer/install.sh      installation complète sur Raspberry Pi
+├── data/config.example.json  exemple de configuration (noms fictifs)
+├── docs/                     captures d'écran du README (données fictives)
+└── README.md
+```
+
+Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont **pas versionnés** (voir `.gitignore`) : la configuration réelle d'une structure ne part jamais dans le dépôt.
+
+## Crédits
+
+- Police [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next), sous licence SIL Open Font License 1.1 (`static/polices/LICENCE-OFL.txt`).
+- Synthèse vocale facultative : [Piper](https://github.com/rhasspy/piper) et ses voix françaises.
