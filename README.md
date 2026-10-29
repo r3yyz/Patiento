@@ -36,7 +36,7 @@ Le praticien appelle son patient depuis son PC ou son smartphone. La TV de la sa
 - [Réglages avancés](#réglages-avancés)
 - [Dépannage](#dépannage)
 - [Contenu du dépôt](#contenu-du-dépôt)
-- [Crédits](#crédits)
+- [Licence et crédits](#licence-et-crédits)
 
 ## Fonctionnement
 
@@ -133,13 +133,13 @@ La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm
 1. Copier ce dossier sur le Pi, ou le cloner :
 
    ```bash
-   git clone https://github.com/r3yyz/Patiento.git
+   git clone https://github.com/r3yyz/patiento-app.git
    ```
 
 2. Depuis le compte qui ouvre la session du bureau (par exemple `pi`), lancer le script avec `sudo` :
 
    ```bash
-   cd Patiento
+   cd patiento-app
    sudo ./installer/install.sh              # ou : sudo ./installer/install.sh --avec-voix
    sudo reboot
    ```
@@ -360,12 +360,15 @@ Patiento/
 ├── installer/install.sh      installation complète sur Raspberry Pi
 ├── data/config.example.json  exemple de configuration (noms fictifs)
 ├── docs/                     captures d'écran du README (données fictives)
+├── LICENSE                   licence MIT
 └── README.md
 ```
 
 Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont **pas versionnés** (voir `.gitignore`) : la configuration réelle d'une structure ne part jamais dans le dépôt.
 
-## Crédits
+## Licence et crédits
+
+Patiento est distribué sous **licence MIT** (voir [`LICENSE`](LICENSE)) : il peut être utilisé, modifié et redistribué librement, y compris dans un cadre professionnel, à condition de conserver la mention de copyright. Il est fourni sans garantie.
 
 - Police [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next), sous licence SIL Open Font License 1.1 (`static/polices/LICENCE-OFL.txt`).
 - Synthèse vocale facultative : [Piper](https://github.com/rhasspy/piper) et ses voix françaises.
