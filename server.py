@@ -8,7 +8,7 @@ Un seul fichier, uniquement la bibliothèque standard Python (3.9+).
   dans DATA/config.json.
 
 Variables d'environnement :
-  APPEL_PORT       port d'écoute (défaut 8080)
+  APPEL_PORT       port d'écoute HTTP (défaut 8080)
   APPEL_HOST       adresse d'écoute (défaut 0.0.0.0)
   APPEL_DATA       dossier des données (défaut ./data)
   APPEL_TTS_MODEL  chemin d'une voix Piper (.onnx) pour l'annonce vocale
@@ -56,7 +56,7 @@ DEFAULT_CONFIG = {
     "cabinet": "Maison de santé",
     # Une salle = un cabinet de consultation, rattaché à un pôle. À adapter dans la page Contenus.
     "salles": (
-        [{"salle": str(i), "pole": "Médecine", "praticien": ""} for i in range(1, 8)]      # 6 généralistes + 1 spécialistes
+        [{"salle": str(i), "pole": "Médecine", "praticien": ""} for i in range(1, 8)]      # 6 généralistes + 1 spécialiste
         + [{"salle": str(i), "pole": "Dentaire", "praticien": ""} for i in range(8, 10)]
         + [{"salle": str(i), "pole": "Kinésithérapie", "praticien": ""} for i in range(10, 12)]
         + [{"salle": "12", "pole": "Infirmiers", "praticien": ""}]
@@ -240,9 +240,15 @@ class Store:
         with self.cond:
             if self._salle(salle) is None:
                 raise ValueError("Salle inconnue.")
+            meme = lambda a: a and (a["salle"], a["nom"], a["civilite"], a["precision"]) == (salle, nom, civilite, precision)
             for a in self.attente:
-                if a["salle"] == salle and a["nom"] == nom and a["civilite"] == civilite:
+                if meme(a):  # déjà dans la file : rien à ajouter
                     return self._appel_public(a)
+            if meme(self.actuel):  # déjà à l'écran : on rejoue l'annonce au lieu de le remettre dans la file
+                self.actuel["affiche_a"] = time.time()
+                self.actuel["passage"] += 1
+                self._change()
+                return self._appel_public(self.actuel)
             identite = f"{civilite} {nom}" + (f" {precision}." if precision else "")
             mot, accord = CIVILITES[civilite]
             appel = {
@@ -316,7 +322,10 @@ class Store:
             raise ValueError("Le message doit faire entre 1 et 200 caractères.")
         jusqu_au = str(jusqu_au or "").strip()
         if jusqu_au:
-            date.fromisoformat(jusqu_au)  # lève ValueError si invalide
+            try:
+                date.fromisoformat(jusqu_au)
+            except ValueError:
+                raise ValueError("Date de fin invalide (format AAAA-MM-JJ).") from None
         with self.cond:
             aujourdhui = date.today().isoformat()
             self.config["messages"] = [m for m in self.config["messages"]
@@ -359,7 +368,10 @@ class Store:
             for cle, mini, maxi in (("duree_appel", 5, 120), ("duree_diapo", 3, 120),
                                     ("duree_historique", 1, 30)):
                 if cle in donnees:
-                    c[cle] = max(mini, min(maxi, int(donnees[cle])))
+                    try:
+                        c[cle] = max(mini, min(maxi, int(donnees[cle])))
+                    except (TypeError, ValueError):
+                        raise ValueError("Les durées doivent être des nombres entiers.") from None
             if "horaires" in donnees:
                 debut = str(donnees["horaires"].get("debut", ""))
                 fin = str(donnees["horaires"].get("fin", ""))
@@ -493,11 +505,20 @@ class Handler(BaseHTTPRequestHandler):
                      TYPES.get(chemin.suffix.lower(), "application/octet-stream"),
                      {"Cache-Control": cache})
 
+    def taille_recue(self):
+        try:
+            return int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ValueError("Requête invalide.") from None
+
     def json_recu(self):
-        taille = int(self.headers.get("Content-Length") or 0)
-        if taille > MAX_JSON:
+        taille = self.taille_recue()
+        if not 0 <= taille <= MAX_JSON:
             raise ValueError("Requête trop volumineuse.")
-        donnees = json.loads(self.rfile.read(taille) or b"{}")
+        try:
+            donnees = json.loads(self.rfile.read(taille) or b"{}")
+        except ValueError:
+            raise ValueError("Requête invalide (JSON mal formé).") from None
         if not isinstance(donnees, dict):
             raise ValueError("Format de requête invalide.")
         return donnees
@@ -571,7 +592,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.erreur(404, "Salle inconnue.")
         hote = self.headers.get("Host") or f"localhost:{PORT}"
         schema = "https" if isinstance(self.connection, ssl.SSLSocket) else "http"
-        contenu = f"[InternetShortcut]\r\nURL={schema}://{hote}/appel?salle={salle}\r\n"
+        contenu = f"[InternetShortcut]\r\nURL={schema}://{hote}/appel?salle={quote(salle, safe='')}\r\n"
         nom = re.sub(r"[^\w-]", "_", f"Appel salle {salle}")
         self.envoyer(200, contenu, "application/octet-stream",
                      {"Content-Disposition": f'attachment; filename="{nom}.url"'})
@@ -606,15 +627,17 @@ class Handler(BaseHTTPRequestHandler):
             self.envoyer(200, {"ok": True})
         except KeyError as exc:
             self.erreur(404, str(exc.args[0]) if exc.args else "Introuvable.")
-        except (ValueError, TypeError) as exc:
+        except ValueError as exc:
             self.erreur(400, str(exc) or "Requête invalide.")
+        except (TypeError, AttributeError):  # champ du mauvais type (texte au lieu d'une liste…)
+            self.erreur(400, "Requête invalide.")
 
     def televerser(self):
         nom = unquote(self.headers.get("X-Nom-Fichier", "fichier"))
         ext = Path(nom).suffix.lower()
         if ext not in FORMATS_PRESENTATION | FORMATS_IMAGE | {".pdf"}:
             return self.erreur(400, "Format non pris en charge : PowerPoint, PDF, PNG ou JPG.")
-        taille = int(self.headers.get("Content-Length") or 0)
+        taille = self.taille_recue()
         if not 0 < taille <= MAX_UPLOAD:
             return self.erreur(400, "Fichier vide ou trop volumineux (200 Mo maximum).")
         with self.store.cond:
@@ -692,12 +715,12 @@ class ServeurHttps(ThreadingHTTPServer):
         super().finish_request(request, client_address)
 
 
-def ouvrir(classe, port, handler):
+def ouvrir(classe, port, handler, variable="APPEL_PORT"):
     try:
         return classe((HOST, port), handler)
     except OSError as exc:
         sys.exit(f"Impossible d'écouter sur le port {port} ({exc.strerror}). "
-                 f"Le port est peut-être déjà utilisé : essayer APPEL_PORT={port + 1} python3 server.py")
+                 f"Le port est peut-être déjà utilisé : essayer {variable}={port + 1} python3 server.py")
 
 
 def main():
@@ -713,7 +736,7 @@ def main():
         contexte = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         contexte.minimum_version = ssl.TLSVersion.TLSv1_2
         contexte.load_cert_chain(certificat, cle)
-        https = ouvrir(ServeurHttps, PORT_HTTPS, Handler)
+        https = ouvrir(ServeurHttps, PORT_HTTPS, Handler, "APPEL_PORT_HTTPS")
         https.socket = contexte.wrap_socket(https.socket, server_side=True, do_handshake_on_connect=False)
         threading.Thread(target=https.serve_forever, daemon=True).start()
         serveur = ouvrir(ThreadingHTTPServer, PORT, RedirectionHttps)

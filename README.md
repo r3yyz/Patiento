@@ -28,11 +28,13 @@ Le praticien appelle son patient depuis son PC ou son smartphone. La TV de la sa
 - [Matériel nécessaire](#matériel-nécessaire)
 - [Essayer sur un PC](#essayer-sur-un-pc)
 - [Installer sur le Raspberry Pi](#installer-sur-le-raspberry-pi)
+  - [Connexion sécurisée (HTTPS)](#connexion-sécurisée-https)
 - [Première configuration](#première-configuration)
 - [Adapter Patiento à votre structure](#adapter-patiento-à-votre-structure)
 - [Utilisation au quotidien](#utilisation-au-quotidien)
 - [Confidentialité et sécurité](#confidentialité-et-sécurité)
 - [Maintenance](#maintenance)
+- [Mettre à jour Patiento](#mettre-à-jour-patiento)
 - [Réglages avancés](#réglages-avancés)
 - [Dépannage](#dépannage)
 - [Contenu du dépôt](#contenu-du-dépôt)
@@ -85,6 +87,7 @@ Conseils pour des diapositives lisibles depuis le fond de la salle :
 | `/appel?salle=3` | Praticien | Appeler, rappeler ou annuler un appel pour sa salle (PC ou smartphone) |
 | `/contenus` | Secrétariat, gestionnaire | Diaporama, messages, salles et praticiens, liens d'appel, réglages |
 | `/ecran` | TV | Affichage de la salle d'attente |
+| `/certificat` | Nouveaux postes | Guide d'installation du certificat HTTPS, affiché automatiquement si besoin |
 
 <img src="docs/praticien-mobile.jpg" alt="Page d'appel sur smartphone" width="260">
 
@@ -126,6 +129,19 @@ Si le port 8080 est déjà pris : `APPEL_PORT=8081 python3 server.py`.
 
 La conversion des présentations nécessite LibreOffice (`soffice`) et `pdftoppm` (paquet `poppler-utils`, ou `brew install poppler` sur Mac). Sans eux, tout fonctionne sauf le dépôt de présentations.
 
+### Tester le HTTPS sur un PC
+
+Sur un PC de test, le serveur fonctionne en HTTP. Pour essayer le HTTPS et la page de guide du certificat :
+
+```bash
+PATIENTO_IPS="$(hostname -I 2>/dev/null || ipconfig getifaddr en0)" \
+  bash installer/certificats.sh data/tls "$(whoami)"         # crée l'autorité et le certificat dans data/tls
+APPEL_PORT=8080 APPEL_PORT_HTTPS=8443 python3 server.py
+```
+
+Ouvrir ensuite `http://IP-DU-PC:8080/appel` depuis un autre appareil du réseau : le guide s'affiche, puis bascule sur `https://IP-DU-PC:8443` une fois le certificat (`data/tls/ca.crt`) installé. Pour revenir au HTTP seul : `rm -r data/tls`. Le dossier `data/` n'est jamais versionné.
+
+
 ## Installer sur le Raspberry Pi
 
 ### Installation
@@ -159,7 +175,7 @@ Pour utiliser un certificat fourni par l'établissement plutôt que l'autorité 
 | Voix (option) | environnement Python dédié, Piper et la voix `fr_FR-siwis-medium` dans `/opt/patiento/voix` |
 | Écran | Chromium en mode kiosque lancé au démarrage du bureau (`/usr/local/bin/appel-kiosque`), ouverture automatique de session et mise en veille de l'écran désactivées |
 
-Relancer le script met l'application à jour **sans toucher aux données**.
+Relancer le script met l'application à jour **sans toucher aux données**, au certificat ni à la voix déjà installée (voir [Mettre à jour Patiento](#mettre-à-jour-patiento)).
 
 ### Réglages de la TV
 
@@ -320,6 +336,9 @@ Ce qui se change au quotidien se règle dans la page Contenus. Les valeurs ci-de
 | Largeur des diapositives converties | 1920 px | `server.py` (`pdftoppm -scale-to-x 1920`) |
 | Bornes des durées réglables | appel 5–120 s, diapositive 3–120 s, derniers appels 1–30 min | `server.py` (`definir_reglages`) |
 | Délai avant d'afficher « Connexion au serveur perdue » | 5 s | `static/ecran.html` (`connecter`) |
+| Durée de l'autorité locale et du certificat du Pi | 10 ans et 825 jours | `installer/certificats.sh` (`-days`) |
+| Renouvellement du certificat du Pi | moins de 60 jours avant l'expiration | `installer/certificats.sh` (`-checkend`) |
+| Alerte d'expiration d'un certificat fourni | 30 jours avant | `installer/certificats.sh` |
 
 ### Couleurs, voix et son
 
@@ -329,7 +348,7 @@ Ce qui se change au quotidien se règle dans la page Contenus. Les valeurs ci-de
 
 ## Utilisation au quotidien
 
-**Praticien** : ouvrir la page de sa salle, choisir **Mme** ou **M.**, saisir le nom de famille, cliquer sur **Appeler**. En cas de patients homonymes, renseigner l'initiale du prénom. L'aperçu montre la phrase exacte avant l'envoi. Les boutons de la liste permettent de rappeler ou d'annuler un appel. Un même patient appelé deux fois dans la même salle n'apparaît qu'une fois.
+**Praticien** : ouvrir la page de sa salle, choisir **Mme** ou **M.**, saisir le nom de famille, cliquer sur **Appeler**. En cas de patients homonymes, renseigner l'initiale du prénom. L'aperçu montre la phrase exacte avant l'envoi. Les boutons de la liste permettent de rappeler ou d'annuler un appel. Appeler à nouveau un patient déjà en attente ne crée pas de doublon ; s'il est déjà à l'écran, l'annonce est rejouée.
 
 **Secrétariat** : la page `/contenus` sert à changer un message, remplacer le diaporama ou modifier le praticien d'une salle, sans toucher à l'installation.
 
@@ -356,7 +375,7 @@ Les noms des patients, associés à une structure de soins, sont des données de
 | État du service | `systemctl status patiento` |
 | Journal | `journalctl -u patiento -e` |
 | Redémarrer | `sudo systemctl restart patiento` |
-| Mettre à jour | récupérer la nouvelle version (`git pull`) puis relancer `sudo ./installer/install.sh` |
+| Mettre à jour | `git pull` puis `sudo ./installer/install.sh` et `sudo reboot` (voir [Mettre à jour Patiento](#mettre-à-jour-patiento)) |
 | Sauvegarder la configuration | copier `/var/lib/patiento/config.json`, le dossier `/var/lib/patiento/diapos` pour le diaporama et le dossier `/var/lib/patiento/tls` pour garder la même autorité HTTPS en cas de réinstallation |
 | Vérifier le certificat | `systemctl list-timers patiento-certificats` et `openssl x509 -in /var/lib/patiento/tls/serveur.crt -noout -enddate` |
 | Renouveler le certificat maintenant | `sudo /usr/local/sbin/patiento-certificats /var/lib/patiento/tls appel --redemarrer` |
@@ -374,6 +393,88 @@ sudo rm -r /var/lib/patiento                  # données (config, diaporama) : �
 rm ~/.config/autostart/appel-kiosque.desktop  # démarrage de l'écran kiosque
 ```
 
+## Mettre à jour Patiento
+
+La mise à jour remplace l'application (serveur et pages web) et **conserve tout le reste** :
+
+- la configuration : salles, praticiens, messages, réglages ;
+- le diaporama ;
+- le certificat HTTPS : les postes n'ont **rien à réinstaller** ;
+- la voix Piper et le certificat de l'établissement, s'ils ont été installés : inutile de répéter `--avec-voix` ou `--certificat`.
+
+Le Pi doit avoir accès à Internet pendant la mise à jour : le script récupère la nouvelle version et vérifie les paquets système.
+
+### Étapes
+
+1. **Sauvegarder les données** (recommandé, quelques secondes) :
+
+   ```bash
+   sudo tar czf ~/patiento-sauvegarde-$(date +%F).tar.gz -C /var/lib patiento
+   ```
+
+   L'archive contient la clé privée du certificat : la garder sur le Pi ou dans un endroit sûr.
+
+2. **Récupérer la nouvelle version**, depuis le dossier cloné lors de l'installation :
+
+   ```bash
+   cd ~/patiento-app
+   git pull
+   ```
+
+3. **Relancer l'installation** :
+
+   ```bash
+   sudo ./installer/install.sh
+   ```
+
+4. **Redémarrer le Pi**, pour que la TV charge les nouvelles pages :
+
+   ```bash
+   sudo reboot
+   ```
+
+   Sur les postes des praticiens, actualiser la page (touche F5) si l'affichage semble ancien.
+
+### Vérifier
+
+| Vérification | Commande ou action |
+| --- | --- |
+| Version installée | `git log -1 --oneline` dans le dossier cloné |
+| Service démarré | `systemctl status patiento` |
+| Messages de démarrage (dont « Voix chargée ») | `journalctl -u patiento -e` |
+| Fonctionnement | faire un appel de test depuis une page praticien |
+
+### Revenir à la version précédente
+
+```bash
+cd ~/patiento-app
+git log --oneline                 # repérer la version voulue (ex. : 5d747be)
+git checkout 5d747be
+sudo ./installer/install.sh && sudo reboot
+```
+
+Pour revenir ensuite à la dernière version : `git checkout main && git pull`, puis relancer l'installation.
+
+Pour restaurer aussi les données sauvegardées :
+
+```bash
+sudo systemctl stop patiento
+sudo tar xzf ~/patiento-sauvegarde-AAAA-MM-JJ.tar.gz -C /var/lib
+sudo systemctl start patiento
+```
+
+### Sans git
+
+Si Patiento a été copié sur le Pi sans `git clone` : télécharger la nouvelle version (bouton **Code › Download ZIP** sur la page du dépôt), la décompresser sur le Pi, puis lancer `sudo ./installer/install.sh` depuis ce nouveau dossier. Les données ne sont pas dans ce dossier : rien n'est perdu.
+
+### Ajouter ou changer une option
+
+| Besoin | Commande |
+| --- | --- |
+| Ajouter la voix Piper | `sudo ./installer/install.sh --avec-voix` |
+| Changer de voix | modifier `VOIX_NOM` et `VOIX_URL` en tête de `installer/install.sh`, puis `sudo ./installer/install.sh --avec-voix` |
+| Installer ou remplacer le certificat de l'établissement | `sudo ./installer/install.sh --certificat patiento.crt --cle patiento.key` |
+
 ## Réglages avancés
 
 Le serveur se configure par variables d'environnement (le script d'installation les renseigne dans le service systemd) :
@@ -385,6 +486,7 @@ Le serveur se configure par variables d'environnement (le script d'installation 
 | `APPEL_HOST` | adresse d'écoute | `0.0.0.0` |
 | `APPEL_DATA` | dossier des données | `./data` (`/var/lib/patiento` après installation) |
 | `APPEL_TTS_MODEL` | chemin d'une voix Piper (`.onnx`) | vide : voix du navigateur |
+| `PATIENTO_IPS` | (script `certificats.sh` uniquement) adresses IP à inclure dans le certificat, si `hostname -I` n'existe pas | IP détectées automatiquement |
 
 Pour installer sur un autre port : `sudo APPEL_PORT=8080 ./installer/install.sh`. Avec `sudo`, vérifier que la variable est bien transmise (`sudo --preserve-env=APPEL_PORT` si nécessaire).
 
@@ -410,7 +512,7 @@ Les pages s'appuient sur une API JSON simple, utilisable pour des tests ou une i
 | POST | `/api/diaporama` | fichier brut dans le corps, nom dans l'en-tête `X-Nom-Fichier` (encodé en URL) |
 | POST | `/api/diaporama/suppression` | `{}` |
 
-Les erreurs de saisie renvoient un code 400 avec `{"erreur": "…"}` en français.
+Codes de réponse : `200` (succès), `201` (appel créé), `202` (diaporama reçu, conversion lancée), `400` (saisie invalide), `404` (salle, appel ou page introuvable), `409` (une conversion est déjà en cours). Les erreurs renvoient `{"erreur": "…"}` avec un message en français.
 
 ```bash
 curl -s -X POST localhost:8080/api/appel -H 'Content-Type: application/json' \
@@ -437,7 +539,7 @@ curl -s -X POST localhost:8080/api/appel -H 'Content-Type: application/json' \
 ```
 Patiento/
 ├── server.py                 serveur HTTP (bibliothèque standard Python uniquement)
-├── static/                   pages web : accueil, appel, contenus, écran
+├── static/                   pages web : accueil, appel, contenus, écran, certificat
 │   ├── commun.css            styles des pages PC
 │   ├── commun.js             connexion temps réel et utilitaires
 │   └── polices/              police Atkinson Hyperlegible Next, servie en local
@@ -456,4 +558,4 @@ Le fichier `data/config.json`, le diaporama et tout le reste de `data/` ne sont 
 Patiento est distribué sous **licence MIT** (voir [`LICENSE`](LICENSE)) : il peut être utilisé, modifié et redistribué librement, y compris dans un cadre professionnel, à condition de conserver la mention de copyright. Il est fourni sans garantie.
 
 - Police [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next), sous licence SIL Open Font License 1.1 (`static/polices/LICENCE-OFL.txt`).
-- Synthèse vocale facultative : [Piper](https://github.com/rhasspy/piper) et ses voix françaises.
+- Synthèse vocale facultative : [Piper](https://github.com/rhasspy/piper) et ses voix françaises. Piper est sous licence GPL ; il n'est pas inclus dans le dépôt et ne s'installe qu'avec l'option `--avec-voix`.

@@ -7,7 +7,8 @@
 #                                                certificat HTTPS fourni par l'établissement
 #                                                (sinon : autorité locale générée automatiquement)
 #
-# Relancer le script met à jour l'application sans toucher aux données.
+# Relancer le script met à jour l'application sans toucher aux données
+# (configuration, diaporama, certificats) ni à la voix Piper déjà installée.
 set -euo pipefail
 
 APP_SRC="$(cd "$(dirname "$0")/.." && pwd)"
@@ -68,8 +69,12 @@ if [[ $AVEC_VOIX -eq 1 ]]; then
   for f in "$VOIX_NOM.onnx" "$VOIX_NOM.onnx.json"; do
     [[ -s "$APP_DIR/voix/$f" ]] || curl -fL -o "$APP_DIR/voix/$f" "$VOIX_URL/$f"
   done
+fi
+# Voix installée (maintenant ou lors d'une installation précédente) : on la garde, même sans --avec-voix.
+if [[ -x "$APP_DIR/venv/bin/python" && -s "$APP_DIR/voix/$VOIX_NOM.onnx" ]]; then
   PYTHON="$APP_DIR/venv/bin/python"
   ENV_VOIX="Environment=APPEL_TTS_MODEL=$APP_DIR/voix/$VOIX_NOM.onnx"
+  echo "Voix Piper : $VOIX_NOM"
 fi
 
 echo "==> Certificats HTTPS"
