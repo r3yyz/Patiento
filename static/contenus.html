@@ -21,14 +21,27 @@
   .barre span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
   .vignettes { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .vignettes img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: var(--vignette); border-radius: 6px; }
-  .salle-ligne { display: grid; grid-template-columns: 90px 1fr 1fr auto; gap: 10px; align-items: center; }
+  .salle-ligne { display: grid; grid-template-columns: 90px 1fr 1fr 80px; gap: 10px; align-items: center; }
   .lien-ligne { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; }
-  .lien-ligne code { font-size: .88rem; background: var(--neutre-clair); padding: 8px 10px; border-radius: 7px; overflow-wrap: anywhere; }
+  .salle-entete { font-size: .8rem; font-weight: 700; color: var(--doux); text-transform: uppercase; letter-spacing: .04em; }
+  .lien-ligne { padding: 10px 14px; border: 1px solid var(--trait); border-radius: 10px; background: var(--surface); }
+  .lien-ligne .lien-texte { display: grid; gap: 2px; min-width: 0; }
+  .lien-ligne code { font-size: .85rem; color: var(--doux); overflow-wrap: anywhere; }
   .titre-carte { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-  nav.sommaire { display: flex; gap: 8px; flex-wrap: wrap; }
+  nav.sommaire {
+    display: flex; gap: 8px; flex-wrap: wrap; position: sticky; top: 0; z-index: 5;
+    padding: 10px 16px; margin: -10px -16px; background: var(--fond);
+  }
+  section.carte { scroll-margin-top: 64px; }
+  nav.sommaire a:hover { border-color: var(--accent); color: var(--accent); }
   nav.sommaire a { font-size: .9rem; padding: 6px 12px; border-radius: 99px; background: var(--carte); border: 1px solid var(--trait); text-decoration: none; color: var(--encre); }
   @media (max-width: 600px) {
-    .salle-ligne, .lien-ligne { grid-template-columns: 1fr; }
+    .salle-ligne { grid-template-columns: 1fr; }
+    .lien-ligne { grid-template-columns: 1fr 1fr; }
+    .lien-ligne .lien-texte { grid-column: 1 / -1; }
+    nav.sommaire { flex-wrap: nowrap; overflow-x: auto; }
+    nav.sommaire a { white-space: nowrap; }
+    .salle-entete { display: none; }
   }
 </style>
 </head>
@@ -87,6 +100,7 @@
     </div>
     <p>Ces informations s'affichent en permanence en bas de l'écran. Laissez le nom du praticien vide pour masquer une salle de l'écran ; le pôle sert à regrouper les salles.</p>
     <form id="form-salles" style="display:grid; gap:10px">
+      <div class="salle-ligne salle-entete" aria-hidden="true"><span>N° salle</span><span>Pôle</span><span>Praticien</span><span></span></div>
       <div id="lignes-salles" style="display:grid; gap:10px"></div>
       <div><button class="bouton" type="submit">Enregistrer les salles</button></div>
     </form>
@@ -251,12 +265,14 @@
     $("liste-liens").replaceChildren(...e.salles.map((s) => {
       const url = `${location.origin}/appel?salle=${encodeURIComponent(s.salle)}`;
       return elt("div", { class: "lien-ligne" },
-        elt("code", {}, `Salle ${s.salle}${s.pole ? " · " + s.pole : ""}${s.praticien ? " · " + s.praticien : ""} — ${url}`),
+        elt("div", { class: "lien-texte" },
+          elt("strong", {}, [`Salle ${s.salle}`, s.pole, s.praticien].filter(Boolean).join(" · ")),
+          elt("code", {}, url)),
         elt("button", { class: "bouton secondaire petit", type: "button", onclick: async () => {
           try { await navigator.clipboard.writeText(url); notifier("Lien copié."); }
           catch (err) { prompt("Copiez le lien :", url); }
         } }, "Copier"),
-        elt("a", { class: "bouton petit", href: `/raccourci/${encodeURIComponent(s.salle)}.url` }, "Raccourci bureau"));
+        elt("a", { class: "bouton secondaire petit", href: `/raccourci/${encodeURIComponent(s.salle)}.url` }, "Raccourci bureau"));
     }));
   }
 

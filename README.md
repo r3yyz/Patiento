@@ -12,6 +12,7 @@ Tout tient dans **un seul programme Python**, sans dépendance externe ni base d
 - [Essayer sur un PC](#essayer-sur-un-pc)
 - [Installer sur le Raspberry Pi](#installer-sur-le-raspberry-pi)
 - [Première configuration](#première-configuration)
+- [Adapter Patiento à une autre structure](#adapter-patiento-à-une-autre-structure)
 - [Utilisation au quotidien](#utilisation-au-quotidien)
 - [Confidentialité](#confidentialité)
 - [Maintenance](#maintenance)
@@ -151,6 +152,66 @@ Depuis n'importe quel PC de la maison de santé, ouvrir `http://IP-DU-PI/contenu
 5. **Diaporama** (facultatif) : déposer une présentation PowerPoint, un PDF ou des images.
 
 Le bouton « Voir l'écran » ouvre l'affichage de la salle d'attente pour contrôler le résultat.
+
+## Adapter Patiento à une autre structure
+
+Patiento est réglé pour la maison de santé de Lamotte-Beuvron, mais rien n'est figé. Ce tableau récapitule tout ce qui peut changer d'un cabinet à l'autre, et où le modifier.
+
+| Ce qui change | Où le modifier | Faut-il redémarrer ? |
+| --- | --- | --- |
+| Nom affiché en haut de l'écran | page Contenus › Réglages | non |
+| Nombre de salles, numéros, pôles, praticiens | page Contenus › Salles | non |
+| Durée d'un appel, d'une diapositive, des derniers appels | page Contenus › Réglages | non |
+| Horaires d'allumage de l'écran | page Contenus › Réglages | non |
+| Messages et diaporama | page Contenus | non |
+| Configuration de départ d'une nouvelle installation | `data/config.example.json` ou `DEFAULT_CONFIG` dans `server.py` | avant le premier démarrage |
+| Port, adresse d'écoute, dossier des données | variables d'environnement (voir [Réglages avancés](#réglages-avancés)) | oui |
+| Voix de l'annonce | option `--avec-voix` et variables `VOIX_NOM` / `VOIX_URL` de `installer/install.sh` | oui (relancer le script) |
+| Couleurs | variables du `:root` dans `static/commun.css` (pages PC) et `static/ecran.html` (TV) | non (recharger les pages) |
+| Volume | télécommande de la TV | non |
+
+### Les salles
+
+Une « salle » est un lieu où l'on appelle un patient : un cabinet de consultation, un box, une salle de soins. Dans la page Contenus, section **Salles, pôles et praticiens** :
+
+- **Ajouter une salle** : bouton « + Ajouter une salle », remplir la ligne, puis **Enregistrer les salles**.
+- **Retirer une salle** : bouton « Retirer » sur la ligne, puis **Enregistrer les salles**. Il faut garder au moins une salle.
+- **Numéro** : texte libre de 10 caractères au maximum. Des chiffres (`3`), une lettre (`B`) ou un mot court (`Soins`) conviennent : l'écran affichera « est attendue en salle B ». Chaque numéro doit être unique.
+- **Pôle** : texte libre de 40 caractères au maximum (« Médecine », « Podologie », « Sages-femmes »…). Les salles d'un même pôle sont regroupées en bas de l'écran **dans l'ordre de la liste** : garder les salles d'un même pôle à la suite. Pour un cabinet sans pôles (par exemple 5 kinésithérapeutes), laisser le champ vide : les salles s'affichent simplement les unes après les autres.
+- **Praticien** : 60 caractères au maximum (« Dr Dupont », « Cabinet infirmier »). Laisser vide pour masquer la salle en bas de l'écran ; on peut toujours y appeler un patient.
+
+> **Attention aux liens des praticiens.** Le lien d'appel contient le numéro de salle (`/appel?salle=3`). Si on renumérote ou retire une salle, l'ancien lien affiche « La salle 3 n'existe pas » : redonner au praticien son nouveau lien ou son nouveau raccourci (section **Liens d'appel des praticiens**). Changer seulement le nom du praticien ne casse pas le lien.
+
+Exemples :
+
+| Structure | Salles à saisir |
+| --- | --- |
+| Cabinet de kinésithérapie, 5 praticiens | salles `1` à `5`, pôle vide, un kinésithérapeute par salle |
+| Cabinet médical, 3 médecins et 1 infirmière | salles `1` à `3` en « Médecine », salle `Soins` en « Infirmiers » |
+| Maison de santé (configuration par défaut) | salles `1` à `7` en « Médecine », `8` et `9` en « Dentaire », `10` et `11` en « Kinésithérapie », `12` en « Infirmiers » |
+
+### Préparer la configuration avant l'installation
+
+Pour déployer dans une autre structure sans tout ressaisir sur place :
+
+1. Copier `data/config.example.json` dans `data/config.json` et l'éditer : nom (`cabinet`), salles, durées, horaires. Les durées sont bornées : `duree_appel` de 5 à 120 s, `duree_diapo` de 3 à 120 s, `duree_historique` de 1 à 30 min ; `horaires` au format `HH:MM`.
+2. Installer le Pi normalement, puis copier ce fichier dans `/var/lib/patiento/config.json` et redémarrer le service :
+
+   ```bash
+   sudo cp data/config.json /var/lib/patiento/config.json
+   sudo chown appel:appel /var/lib/patiento/config.json
+   sudo systemctl restart patiento
+   ```
+
+Pour modifier `config.json` à la main sur un Pi en service, **arrêter le service avant** (`sudo systemctl stop patiento`), sinon le serveur réécrit le fichier à la prochaine modification faite depuis la page Contenus. Un champ absent du fichier reprend sa valeur par défaut.
+
+Pour changer la configuration de départ de toutes les futures installations (sans `config.json`), modifier `DEFAULT_CONFIG` en haut de `server.py`.
+
+### Couleurs, voix et son
+
+- **Couleurs** : toutes les couleurs sont des variables CSS en tête de `static/commun.css` (`--accent`, `--fond`, `--encre`…) et de `static/ecran.html` (`--nuit`, `--accent`, `--accent-vif`…). Changer ces valeurs suffit. Vérifier le contraste du texte sur la TV, qui doit rester lisible à plusieurs mètres.
+- **Voix** : sans l'option `--avec-voix`, l'annonce utilise la voix du navigateur. Avec l'option, le script installe la voix Piper `fr_FR-siwis-medium` ; une autre voix française du [catalogue Piper](https://huggingface.co/rhasspy/piper-voices/tree/main/fr/fr_FR) s'utilise en changeant `VOIX_NOM` et `VOIX_URL` en tête de `installer/install.sh`, puis en relançant le script.
+- **Son** : le volume se règle sur la TV. Le carillon est généré dans `static/ecran.html` (fonction `carillon`).
 
 ## Utilisation au quotidien
 
