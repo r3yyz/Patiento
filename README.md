@@ -50,6 +50,8 @@ Deux modes, au choix à l'installation :
 
 Les présentations PowerPoint (`.pptx`, `.ppt`, `.ppsx`, `.pps`), OpenDocument (`.odp`) et les PDF sont déposés depuis la page **Contenus** (200 Mo maximum). Le serveur les convertit en images avec LibreOffice et `pdftoppm`, puis l'écran les fait défiler. Les images `.png` et `.jpg` sont aussi acceptées. Un seul diaporama est actif à la fois, et une seule conversion peut tourner à la fois.
 
+Pour des diapositives lisibles depuis le fond de la salle : format **16:9**, **gros caractères**, peu de texte. L'encart « Derniers appels » se superpose au **coin inférieur droit** de la diapositive pendant quelques minutes après chaque appel : n'y placer rien d'important. Les noms trop longs pour une ligne sont réduits automatiquement sur l'écran d'appel.
+
 ## Les pages
 
 | Adresse | Pour qui | Rôle |
@@ -206,6 +208,24 @@ Pour déployer dans une autre structure sans tout ressaisir sur place :
 Pour modifier `config.json` à la main sur un Pi en service, **arrêter le service avant** (`sudo systemctl stop patiento`), sinon le serveur réécrit le fichier à la prochaine modification faite depuis la page Contenus. Un champ absent du fichier reprend sa valeur par défaut.
 
 Pour changer la configuration de départ de toutes les futures installations (sans `config.json`), modifier `DEFAULT_CONFIG` en haut de `server.py`.
+
+### Valeurs fixées dans le code
+
+Tout ce qu'un cabinet a besoin de changer au quotidien se règle dans la page Contenus. Les valeurs ci-dessous sont plus rarement modifiées : elles sont écrites dans le code et se changent en éditant le fichier indiqué. Sur le Pi, relancer ensuite `sudo ./installer/install.sh` pour copier la nouvelle version.
+
+| Valeur | Défaut | Fichier |
+| --- | --- | --- |
+| Texte au-dessus du nom de la structure quand il n'y a pas de diaporama | « Bienvenue » | `static/ecran.html` (bloc `.accueil`) |
+| Nombre de derniers appels affichés sur la TV | 3 | `static/ecran.html` (`afficherRecents`, `slice(0, 3)`) |
+| Vitesse de la voix du navigateur | 0,92 | `static/ecran.html` (`phrase.rate`) |
+| Vitesse de défilement des messages | 120 px/s | `static/ecran.html` (`afficherMessages`) |
+| Carillon (notes, durée, volume relatif) | 3 notes | `static/ecran.html` (fonction `carillon`) |
+| Civilités proposées (et accord « attendu / attendue ») | M. et Mme | `static/appel.html`, `static/ecran.html` et `server.py` (validation, annonce « Madame / Monsieur ») |
+| Caractères autorisés et longueur du nom | lettres, espaces, tirets, apostrophes ; 40 | `server.py` (`NOM_VALIDE`) |
+| Taille maximale d'un diaporama | 200 Mo | `server.py` (`MAX_UPLOAD`) |
+| Largeur des diapositives converties | 1920 px | `server.py` (`pdftoppm -scale-to-x 1920`) |
+| Bornes des durées réglables | appel 5–120 s, diapositive 3–120 s, derniers appels 1–30 min | `server.py` (`definir_reglages`) |
+| Délai avant d'afficher « Connexion au serveur perdue » | 5 s | `static/ecran.html` (`connecter`) |
 
 ### Couleurs, voix et son
 

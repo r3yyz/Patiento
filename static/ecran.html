@@ -82,7 +82,7 @@
   }
   @keyframes entree { from { opacity: 0; transform: scale(1.03); } to { opacity: 1; transform: none; } }
   .appel .contenu { display: grid; gap: 2.4vh; padding: 0 5vw; }
-  .appel .nom { font-size: 13vh; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; }
+  .appel .nom { font-size: 13vh; font-weight: 800; line-height: 1.05; letter-spacing: -.01em; white-space: nowrap; justify-self: center; }
   .appel .suite { font-size: 5.2vh; opacity: .9; }
   .appel .salle {
     justify-self: center; font-size: 15vh; font-weight: 800; line-height: 1; padding: 2.2vh 5vw;
@@ -278,9 +278,13 @@
   }
 
   // ---------- Rendu de l'état ----------
-  function ajusterNom(texte) {
-    const taille = Math.min(13, 170 / Math.max(texte.length, 1));
-    $("appel-nom").style.fontSize = `min(${Math.max(taille, 6)}vh, ${Math.floor(150 / Math.max(texte.length, 8))}vw)`;
+  // Mesure le nom à la taille maximale, puis le réduit juste assez pour tenir sur une ligne.
+  function ajusterNom() {
+    const nom = $("appel-nom");
+    nom.style.fontSize = "13vh";
+    const largeur = nom.scrollWidth;
+    const dispo = window.innerWidth * 0.9;
+    if (largeur > dispo) nom.style.fontSize = `${Math.max(5, 13 * dispo / largeur)}vh`;
   }
 
   function afficherAppel(e) {
@@ -288,11 +292,11 @@
     if (!a) { $("appel").hidden = true; return; }
     const cle = `${a.id}:${a.passage}`;
     $("appel-nom").textContent = a.identite;
-    ajusterNom(a.identite);
     $("appel-suite").textContent = `est ${a.civilite === "Mme" ? "attendue" : "attendu"} en`;
     $("appel-salle").textContent = `Salle ${a.salle}`;
     $("appel-praticien").textContent = [a.pole, a.praticien].filter(Boolean).join(" · ");
     $("appel").hidden = false;
+    ajusterNom();
 
     const maintenant = Date.now() / 1000 + decalage;
     const restant = Math.max(0, a.fin - maintenant);
